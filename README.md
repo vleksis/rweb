@@ -9,6 +9,18 @@ The goal of this project is to learn how browsers work by building the core piec
 This repository is in an early stage. The project structure and implementation
 will grow as chapters from Web Browser Engineering are completed.
 
+Completed:
+- [x] [Chapter 1. Downloading Web Pages](https://browser.engineering/http.html)
+  - [ ] 1-1 HTTP/1.1
+  - [ ] 1-2 File URLs
+  - [ ] 1-3 data
+  - [ ] 1-4 Entities
+  - [ ] 1-5 view-source
+  - [ ] 1-6 Keep-alive
+  - [ ] 1-7 Redirects
+  - [ ] 1-8 Caching
+  - [ ] 1-9 Compression
+
 ## Reference
 
 - [Web Browser Engineering](https://browser.engineering/) by Pavel Panchekha and
