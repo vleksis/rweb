@@ -1,0 +1,143 @@
+use std::collections::HashMap;
+use std::str::FromStr;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct HeaderName(Inner);
+
+/// It is there only to hide private enum from public API
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum Inner {
+    Standard(StandardHeaderName),
+    Custom(CustomHeaderName),
+}
+
+impl FromStr for HeaderName {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(standard) = StandardHeaderName::from_str(s) {
+            Ok(HeaderName(Inner::Standard(standard)))
+        } else {
+            let custom = CustomHeaderName::from_str(s)?;
+            Ok(HeaderName(Inner::Custom(custom)))
+        }
+    }
+}
+
+impl std::fmt::Display for HeaderName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            Inner::Standard(standard) => write!(f, "{}", standard),
+            Inner::Custom(custom) => write!(f, "{}", custom),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum StandardHeaderName {
+    Host,
+    Connection,
+    UserAgent,
+    TransferEncoding,
+    ContentEncoding,
+}
+
+impl std::fmt::Display for StandardHeaderName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StandardHeaderName::Host => write!(f, "host"),
+            StandardHeaderName::Connection => write!(f, "connection"),
+            StandardHeaderName::UserAgent => write!(f, "user-agent"),
+            StandardHeaderName::TransferEncoding => write!(f, "transfer-encoding"),
+            StandardHeaderName::ContentEncoding => write!(f, "content-encoding"),
+        }
+    }
+}
+
+impl FromStr for StandardHeaderName {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim().to_lowercase();
+        match s.as_str() {
+            "host" => Ok(StandardHeaderName::Host),
+            "connection" => Ok(StandardHeaderName::Connection),
+            "user-agent" => Ok(StandardHeaderName::UserAgent),
+            "transfer-encoding" => Ok(StandardHeaderName::TransferEncoding),
+            "content-encoding" => Ok(StandardHeaderName::ContentEncoding),
+            _ => Err(anyhow::anyhow!("invalid standard header name")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct CustomHeaderName(String);
+
+impl std::fmt::Display for CustomHeaderName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl FromStr for CustomHeaderName {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(CustomHeaderName(s.trim().to_lowercase()))
+    }
+}
+
+pub const HOST: HeaderName = HeaderName(Inner::Standard(StandardHeaderName::Host));
+pub const CONNECTION: HeaderName = HeaderName(Inner::Standard(StandardHeaderName::Connection));
+pub const USER_AGENT: HeaderName = HeaderName(Inner::Standard(StandardHeaderName::UserAgent));
+pub const TRANSFER_ENCODING: HeaderName =
+    HeaderName(Inner::Standard(StandardHeaderName::TransferEncoding));
+pub const CONTENT_ENCODING: HeaderName =
+    HeaderName(Inner::Standard(StandardHeaderName::ContentEncoding));
+
+#[derive(Debug)]
+pub struct HeaderMap {
+    headers: HashMap<HeaderName, Vec<String>>,
+}
+
+impl HeaderMap {
+    pub fn new() -> Self {
+        Self {
+            headers: HashMap::new(),
+        }
+    }
+
+    pub fn append(&mut self, name: HeaderName, value: &str) {
+        self.headers
+            .entry(name.clone())
+            .or_default()
+            .push(value.to_string());
+    }
+
+    pub fn set(&mut self, name: HeaderName, value: &str) {
+        self.headers.insert(name, vec![value.to_string()]);
+    }
+
+    pub fn get(&self, name: &HeaderName) -> Option<&str> {
+        self.headers.get(name)?.first().map(String::as_str)
+    }
+
+    pub fn get_all(&self, name: &HeaderName) -> impl Iterator<Item = &str> {
+        self.headers
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(String::as_str)
+    }
+
+    pub fn to_string(&self) -> String {
+        let mut result = String::new();
+        for (name, values) in &self.headers {
+            for value in values {
+                result.push_str(&format!("{}: {}\r\n", name, value));
+            }
+        }
+
+        result
+    }
+}

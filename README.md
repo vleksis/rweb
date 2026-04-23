@@ -11,7 +11,7 @@ will grow as chapters from Web Browser Engineering are completed.
 
 Completed:
 - [x] [Chapter 1. Downloading Web Pages](https://browser.engineering/http.html)
-  - [ ] 1-1 HTTP/1.1
+  - [x] 1-1 HTTP/1.1
   - [ ] 1-2 File URLs
   - [ ] 1-3 data
   - [ ] 1-4 Entities

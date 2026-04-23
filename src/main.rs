@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
 
@@ -9,6 +8,15 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio_native_tls::TlsConnector;
 use tokio_native_tls::native_tls;
+
+use crate::header::CONNECTION;
+use crate::header::CONTENT_ENCODING;
+use crate::header::HOST;
+use crate::header::HeaderMap;
+use crate::header::TRANSFER_ENCODING;
+use crate::header::USER_AGENT;
+
+mod header;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Scheme {
@@ -62,7 +70,7 @@ impl Url {
             scheme,
             host,
             port,
-            path: format!("/{path}"),
+            path,
         })
     }
 
@@ -78,7 +86,12 @@ impl Url {
     }
 
     pub async fn request(&self) -> anyhow::Result<String> {
-        let req = format!("GET {} HTTP/1.0\r\nHost: {}\r\n\r\n", self.path, self.host);
+        let mut headers = HeaderMap::new();
+        headers.set(HOST, &self.host);
+        headers.set(CONNECTION, "close");
+        headers.set(USER_AGENT, "RwebBroser/0.1");
+
+        let req = format!("GET {} HTTP/1.0\r\n{}\r\n", self.path, headers.to_string());
         let mut dst = String::new();
 
         match self.scheme {
@@ -105,22 +118,21 @@ impl Url {
         let _status = status_line.next().context("missing status code")?;
         let _explanation = status_line.next().unwrap_or("");
 
-        let mut headers = HashMap::new();
+        let mut headers = HeaderMap::new();
         for line in lines.by_ref() {
             if line.is_empty() {
                 break;
             }
 
-            if let Some((key, value)) = line.split_once(':') {
-                let key = key.trim().to_lowercase();
-                let value = value.trim().to_string();
-                headers.insert(key, value);
+            if let Some((name, value)) = line.split_once(':') {
+                let header = name.parse()?;
+                headers.append(header, value);
             }
         }
 
         // unsupported for now
-        assert!(!headers.contains_key("transfer-encoding"));
-        assert!(!headers.contains_key("content-encoding"));
+        assert!(headers.get(&TRANSFER_ENCODING).is_none());
+        assert!(headers.get(&CONTENT_ENCODING).is_none());
 
         let content = lines.collect();
 
