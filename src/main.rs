@@ -32,7 +32,8 @@ async fn load(url: &Url) -> anyhow::Result<()> {
         .build()?;
 
     let resp = send(req).await?;
-    show(&resp);
+    let body = resp.body_as_str()?;
+    show(body);
 
     Ok(())
 }

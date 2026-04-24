@@ -1,0 +1,81 @@
+use anyhow::Context;
+
+use crate::loader::HeaderMap;
+use crate::loader::Version;
+use crate::loader::status::StatusCode;
+
+#[derive(Debug)]
+pub struct Response {
+    status: StatusCode,
+    version: Version,
+    headers: HeaderMap,
+    body: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for Response {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
+        let (head, body) = {
+            let header_end = s
+                .windows(4)
+                .position(|w| w == b"\r\n\r\n")
+                .context("missing header/body separator")?;
+
+            (&s[..header_end], &s[header_end + 4..])
+        };
+
+        let head = std::str::from_utf8(head).context("invalid UTF-8 in header")?;
+        let mut lines = head.lines();
+
+        let mut status_line = lines.next().context("missing status line")?.splitn(3, " ");
+        let version = status_line
+            .next()
+            .context("missing HTTP version")?
+            .parse()?;
+        let status = status_line.next().context("missing status code")?.parse()?;
+        let _explanation = status_line.next().unwrap_or("");
+
+        let mut headers = HeaderMap::new();
+        for line in lines.by_ref() {
+            if line.is_empty() {
+                break;
+            }
+
+            if let Some((name, value)) = line.split_once(':') {
+                let name = name.trim();
+                let header = name.parse()?;
+                headers.append(header, value);
+            }
+        }
+
+        Ok(Self {
+            status,
+            version,
+            headers,
+            body: body.to_vec(),
+        })
+    }
+}
+
+impl Response {
+    pub fn status(&self) -> StatusCode {
+        self.status
+    }
+
+    pub fn version(&self) -> Version {
+        self.version
+    }
+
+    pub fn headers(&self) -> &HeaderMap {
+        &self.headers
+    }
+
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
+    pub fn body_as_str(&self) -> anyhow::Result<&str> {
+        std::str::from_utf8(&self.body).context("response body is not valid utf-8")
+    }
+}

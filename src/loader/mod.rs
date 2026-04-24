@@ -1,14 +1,20 @@
 mod header;
+mod method;
 mod request;
+mod response;
 mod scheme;
+mod send;
+mod status;
 mod url;
+mod version;
 
 pub use header::HeaderMap;
 pub use header::HeaderName;
-pub use request::Method;
+pub use method::Method;
 pub use request::Request;
-pub use request::Version;
-pub use request::send;
+pub use response::Response;
 pub use scheme::Scheme;
+pub use send::send;
 pub use url::Url;
 pub use url::UrlError;
+pub use version::Version;
