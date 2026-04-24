@@ -87,29 +87,27 @@ impl FromStr for CustomHeaderName {
     }
 }
 
-pub const HOST: HeaderName = HeaderName(Inner::Standard(StandardHeaderName::Host));
-pub const CONNECTION: HeaderName = HeaderName(Inner::Standard(StandardHeaderName::Connection));
-pub const USER_AGENT: HeaderName = HeaderName(Inner::Standard(StandardHeaderName::UserAgent));
-pub const TRANSFER_ENCODING: HeaderName =
-    HeaderName(Inner::Standard(StandardHeaderName::TransferEncoding));
-pub const CONTENT_ENCODING: HeaderName =
-    HeaderName(Inner::Standard(StandardHeaderName::ContentEncoding));
+impl HeaderName {
+    pub const HOST: Self = Self(Inner::Standard(StandardHeaderName::Host));
+    pub const CONNECTION: Self = Self(Inner::Standard(StandardHeaderName::Connection));
+    pub const USER_AGENT: Self = Self(Inner::Standard(StandardHeaderName::UserAgent));
+    pub const TRANSFER_ENCODING: Self = Self(Inner::Standard(StandardHeaderName::TransferEncoding));
+    pub const CONTENT_ENCODING: Self = Self(Inner::Standard(StandardHeaderName::ContentEncoding));
+}
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct HeaderMap {
     headers: HashMap<HeaderName, Vec<String>>,
 }
 
 impl HeaderMap {
     pub fn new() -> Self {
-        Self {
-            headers: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn append(&mut self, name: HeaderName, value: &str) {
         self.headers
-            .entry(name.clone())
+            .entry(name)
             .or_default()
             .push(value.to_string());
     }
@@ -129,15 +127,16 @@ impl HeaderMap {
             .flatten()
             .map(String::as_str)
     }
+}
 
-    pub fn to_string(&self) -> String {
-        let mut result = String::new();
+impl std::fmt::Display for HeaderMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (name, values) in &self.headers {
             for value in values {
-                result.push_str(&format!("{}: {}\r\n", name, value));
+                write!(f, "{}: {}\r\n", name, value)?;
             }
         }
 
-        result
+        Ok(())
     }
 }
