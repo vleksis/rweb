@@ -1,4 +1,6 @@
+pub mod file;
 pub mod http;
+
 mod load;
 mod request;
 mod response;

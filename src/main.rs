@@ -26,7 +26,7 @@ impl Client {
     }
 
     async fn load(url: &Url) -> anyhow::Result<()> {
-        let req = match url {
+        let req: Request = match url {
             Url::Http(url) => Request::builder()
                 .http()
                 .url(url.clone())
@@ -35,7 +35,10 @@ impl Client {
                 .header(HeaderName::HOST, url.host())
                 .header(HeaderName::CONNECTION, "close")
                 .header(HeaderName::USER_AGENT, "RwebBrowser/0.1")
-                .build()?,
+                .build()?
+                .into(),
+
+            Url::File(url) => Request::builder().file().url(url).build()?.into(),
         };
 
         let resp = load(req).await?;
