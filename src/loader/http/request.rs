@@ -106,3 +106,28 @@ impl Builder {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serializes_get_request() {
+        let url: Url = "http://example.com/path".parse().unwrap();
+        let request = Request::builder()
+            .method(Method::GET)
+            .version(Version::HTTP10)
+            .url(url)
+            .header(HeaderName::HOST, "example.com")
+            .header(HeaderName::CONNECTION, "close")
+            .build()
+            .unwrap();
+
+        let request = request.to_string();
+
+        assert!(request.starts_with("GET /path HTTP/1.0\r\n"));
+        assert!(request.contains("host: example.com\r\n"));
+        assert!(request.contains("connection: close\r\n"));
+        assert!(request.ends_with("\r\n\r\n"));
+    }
+}

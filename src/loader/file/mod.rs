@@ -80,3 +80,36 @@ pub async fn load(request: Request) -> anyhow::Result<Response> {
     let file = read(path).await.context("failed to read file")?;
     Ok(Response { body: file })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_absolute_file_url() {
+        let url: Url = "file:///tmp/index.html".parse().unwrap();
+
+        assert_eq!(url.path, PathBuf::from("/tmp/index.html"));
+    }
+
+    #[test]
+    fn rejects_relative_file_url() {
+        let result = "file://fixtures/index.html".parse::<Url>();
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn loads_file_body_as_bytes() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/linus.txt");
+        let url: Url = format!("file://{}", path.display()).parse().unwrap();
+        let request = Request::builder().url(&url).build().unwrap();
+
+        let response = load(request).await.unwrap();
+
+        assert_eq!(
+            response.body_as_str().unwrap(),
+            "Talk is cheap. Show me the code.\n"
+        );
+    }
+}

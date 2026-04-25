@@ -80,3 +80,34 @@ impl Response {
         std::str::from_utf8(&self.body).context("response body is not valid utf-8")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_headers_and_preserves_body_bytes() {
+        let raw = b"HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nX-Test: one\r\nX-Test: two\r\n\r\nhello\nworld";
+
+        let response = Response::try_from(raw.as_slice()).unwrap();
+        let content_type = "content-type".parse().unwrap();
+        let x_test = "x-test".parse().unwrap();
+
+        assert_eq!(response.headers().get(&content_type), Some("text/html"));
+        assert_eq!(
+            response.headers().get_all(&x_test).collect::<Vec<_>>(),
+            vec!["one", "two"]
+        );
+        assert_eq!(response.body(), b"hello\nworld");
+    }
+
+    #[test]
+    fn accepts_non_utf8_body() {
+        let raw = b"HTTP/1.0 200 OK\r\nContent-Type: application/octet-stream\r\n\r\n\xff\x00";
+
+        let response = Response::try_from(raw.as_slice()).unwrap();
+
+        assert_eq!(response.body(), b"\xff\x00");
+        assert!(response.body_as_str().is_err());
+    }
+}

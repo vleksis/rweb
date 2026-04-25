@@ -36,3 +36,29 @@ impl FromStr for Url {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dispatches_http_urls() {
+        let url: Url = "https://example.com/".parse().unwrap();
+
+        assert!(matches!(url, Url::Http(_)));
+    }
+
+    #[test]
+    fn dispatches_file_urls() {
+        let url: Url = "file:///tmp/index.html".parse().unwrap();
+
+        assert!(matches!(url, Url::File(_)));
+    }
+
+    #[test]
+    fn rejects_unknown_scheme() {
+        let result: Result<Url, _> = "brainrot://example.com/".parse();
+
+        assert!(result.is_err());
+    }
+}

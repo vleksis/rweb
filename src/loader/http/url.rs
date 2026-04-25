@@ -73,3 +73,37 @@ impl Url {
         &self.path
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_http_url_with_defaults() {
+        let url: Url = "http://example.com/foo".parse().unwrap();
+
+        assert!(matches!(url.scheme(), Scheme::Http));
+        assert_eq!(url.host(), "example.com");
+        assert_eq!(url.port(), 80);
+        assert_eq!(url.path(), "/foo");
+    }
+
+    #[test]
+    fn parses_https_url_with_default_port() {
+        let url: Url = "https://example.com/".parse().unwrap();
+
+        assert!(matches!(url.scheme(), Scheme::Https));
+        assert_eq!(url.host(), "example.com");
+        assert_eq!(url.port(), 443);
+        assert_eq!(url.path(), "/");
+    }
+
+    #[test]
+    fn parses_explicit_port() {
+        let url: Url = "http://localhost:8000/".parse().unwrap();
+
+        assert_eq!(url.host(), "localhost");
+        assert_eq!(url.port(), 8000);
+        assert_eq!(url.path(), "/");
+    }
+}

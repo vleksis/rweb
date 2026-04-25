@@ -140,3 +140,41 @@ impl std::fmt::Display for HeaderMap {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_custom_header_names() {
+        let name: HeaderName = "   X-Test-Header ".parse().unwrap();
+
+        assert_eq!(name.to_string(), "x-test-header");
+    }
+
+    #[test]
+    fn preserves_repeated_header_values() {
+        let name: HeaderName = "x-test".parse().unwrap();
+        let mut headers = HeaderMap::new();
+
+        headers.append(name.clone(), "one");
+        headers.append(name.clone(), "two");
+
+        assert_eq!(headers.get(&name), Some("one"));
+        assert_eq!(
+            headers.get_all(&name).collect::<Vec<_>>(),
+            vec!["one", "two"]
+        );
+    }
+
+    #[test]
+    fn set_replaces_existing_values() {
+        let name: HeaderName = "x-test".parse().unwrap();
+        let mut headers = HeaderMap::new();
+
+        headers.append(name.clone(), "one");
+        headers.set(name.clone(), "two");
+
+        assert_eq!(headers.get_all(&name).collect::<Vec<_>>(), vec!["two"]);
+    }
+}
