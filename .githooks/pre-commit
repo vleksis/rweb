@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if ! cargo +nightly fmt --all --check; then
+    echo "Formatting check failed. Run 'cargo +nightly fmt --all' and try again." >&2
+    exit 1
+fi
+
+if ! cargo check --workspace; then
+    echo "Workspace check failed. Fix compilation errors and try again." >&2
+    exit 1
+fi
+
+if ! cargo test --workspace; then
+    echo "Tests failed. Fix failing tests and try again." >&2
+    exit 1
+fi
+
+if ! cargo clippy --workspace --all-targets --no-deps -- -D warnings; then
+    echo "Clippy check failed. Fix lints and try again." >&2
+    exit 1
+fi
