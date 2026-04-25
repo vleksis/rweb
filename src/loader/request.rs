@@ -1,3 +1,4 @@
+use crate::loader::data;
 use crate::loader::file;
 use crate::loader::http;
 
@@ -5,6 +6,7 @@ use crate::loader::http;
 pub enum Request {
     Http(http::Request),
     File(file::Request),
+    Data(data::Request),
 }
 
 impl From<http::Request> for Request {
@@ -16,6 +18,12 @@ impl From<http::Request> for Request {
 impl From<file::Request> for Request {
     fn from(req: file::Request) -> Self {
         Self::File(req)
+    }
+}
+
+impl From<data::Request> for Request {
+    fn from(req: data::Request) -> Self {
+        Self::Data(req)
     }
 }
 
@@ -39,5 +47,9 @@ impl Builder {
 
     pub fn file(self) -> file::Builder {
         file::Builder::new()
+    }
+
+    pub fn data(self) -> data::Builder {
+        data::Builder::new()
     }
 }

@@ -39,6 +39,7 @@ impl Client {
                 .into(),
 
             Url::File(url) => Request::builder().file().url(url).build()?.into(),
+            Url::Data(url) => Request::builder().data().url(url).build()?.into(),
         };
 
         let resp = load(req).await?;

@@ -1,5 +1,6 @@
 use crate::loader::Request;
 use crate::loader::Response;
+use crate::loader::data;
 use crate::loader::file;
 use crate::loader::http;
 
@@ -7,6 +8,7 @@ pub async fn load(request: impl Into<Request>) -> anyhow::Result<Response> {
     let resp: Response = match request.into() {
         Request::Http(request) => http::load(request).await?.into(),
         Request::File(request) => file::load(request).await?.into(),
+        Request::Data(request) => data::load(request).await?.into(),
     };
 
     Ok(resp)

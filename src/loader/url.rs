@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use crate::loader::data;
 use crate::loader::file;
 use crate::loader::http;
 
@@ -7,6 +8,7 @@ use crate::loader::http;
 pub enum Url {
     Http(http::Url),
     File(file::Url),
+    Data(data::Url),
 }
 
 impl From<http::Url> for Url {
@@ -21,6 +23,12 @@ impl From<file::Url> for Url {
     }
 }
 
+impl From<data::Url> for Url {
+    fn from(url: data::Url) -> Self {
+        Url::Data(url)
+    }
+}
+
 impl FromStr for Url {
     type Err = anyhow::Error;
 
@@ -31,6 +39,9 @@ impl FromStr for Url {
         } else if s.starts_with("file://") {
             let url = s.parse()?;
             Ok(Url::File(url))
+        } else if s.starts_with("data:") {
+            let url = s.parse()?;
+            Ok(Url::Data(url))
         } else {
             Err(anyhow::anyhow!("Invalid URL"))
         }
@@ -53,6 +64,13 @@ mod tests {
         let url: Url = "file:///tmp/index.html".parse().unwrap();
 
         assert!(matches!(url, Url::File(_)));
+    }
+
+    #[test]
+    fn dispatches_data_urls() {
+        let url: Url = "data:text/html,Hello world!".parse().unwrap();
+
+        assert!(matches!(url, Url::Data(_)));
     }
 
     #[test]
