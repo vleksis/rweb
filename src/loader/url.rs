@@ -1,69 +1,27 @@
-use thiserror::Error;
+use std::str::FromStr;
 
-use crate::loader::scheme::Scheme;
+use crate::loader::http;
 
-#[derive(Debug, Error)]
-pub enum UrlError {
-    #[error("invalid scheme: {0}")]
-    InvalidScheme(String),
+#[derive(Debug)]
+pub enum Url {
+    Http(http::Url),
 }
 
-#[derive(Debug, Clone)]
-pub struct Url {
-    scheme: Scheme,
-    host: String,
-    port: u16,
-    path: String,
+impl From<http::Url> for Url {
+    fn from(url: http::Url) -> Self {
+        Url::Http(url)
+    }
 }
 
-impl Url {
-    pub fn parse(raw: &str) -> anyhow::Result<Self> {
-        let Some((scheme, path)) = raw.split_once("://") else {
-            anyhow::bail!("invalid url: {raw}");
-        };
+impl FromStr for Url {
+    type Err = anyhow::Error;
 
-        let scheme = scheme.parse()?;
-
-        let (host, path) = if let Some((host, path)) = path.split_once('/') {
-            (host, format!("/{path}"))
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.starts_with("http://") || s.starts_with("https://") {
+            let url = http::Url::from_str(s)?;
+            Ok(Url::Http(url))
         } else {
-            (path, "/".to_string())
-        };
-
-        let (host, port) = Self::parse_host(scheme, host)?;
-
-        Ok(Self {
-            scheme,
-            host,
-            port,
-            path,
-        })
-    }
-
-    fn parse_host(scheme: Scheme, raw: &str) -> anyhow::Result<(String, u16)> {
-        let Some((host, port)) = raw.rsplit_once(':') else {
-            match scheme {
-                Scheme::Http => return Ok((raw.to_string(), 80)),
-                Scheme::Https => return Ok((raw.to_string(), 443)),
-            }
-        };
-
-        Ok((host.to_string(), port.parse()?))
-    }
-
-    pub fn scheme(&self) -> Scheme {
-        self.scheme
-    }
-
-    pub fn host(&self) -> &str {
-        &self.host
-    }
-
-    pub fn port(&self) -> u16 {
-        self.port
-    }
-
-    pub fn path(&self) -> &str {
-        &self.path
+            Err(anyhow::anyhow!("Invalid URL"))
+        }
     }
 }

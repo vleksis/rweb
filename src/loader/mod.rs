@@ -1,20 +1,10 @@
-mod header;
-mod method;
+pub mod http;
+mod load;
 mod request;
 mod response;
-mod scheme;
-mod send;
-mod status;
 mod url;
-mod version;
 
-pub use header::HeaderMap;
-pub use header::HeaderName;
-pub use method::Method;
+pub use load::load;
 pub use request::Request;
 pub use response::Response;
-pub use scheme::Scheme;
-pub use send::send;
 pub use url::Url;
-pub use url::UrlError;
-pub use version::Version;

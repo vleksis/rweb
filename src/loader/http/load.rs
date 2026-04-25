@@ -4,12 +4,12 @@ use tokio::net::TcpStream;
 use tokio_native_tls::TlsConnector;
 use tokio_native_tls::native_tls;
 
-use crate::loader::HeaderName;
-use crate::loader::Request;
-use crate::loader::Response;
-use crate::loader::Scheme;
+use crate::loader::http::HeaderName;
+use crate::loader::http::Request;
+use crate::loader::http::Response;
+use crate::loader::http::Scheme;
 
-pub async fn send(request: Request) -> anyhow::Result<Response> {
+pub async fn load(request: Request) -> anyhow::Result<Response> {
     let mut dst = Vec::new();
     match request.scheme() {
         Scheme::Http => {
