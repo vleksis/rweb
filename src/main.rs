@@ -31,8 +31,8 @@ impl Client {
                 .http()
                 .url(url.clone())
                 .method(Method::GET)
-                .version(Version::HTTP10)
-                .header(HeaderName::HOST, url.host())
+                .version(Version::HTTP11)
+                .header(HeaderName::HOST, &url.host_header())
                 .header(HeaderName::CONNECTION, "close")
                 .header(HeaderName::USER_AGENT, "RwebBrowser/0.1")
                 .build()?

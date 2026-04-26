@@ -54,7 +54,10 @@ impl Url {
             }
         };
 
-        Ok((host.to_string(), port.parse()?))
+        let host = host.to_string();
+        let port = port.parse()?;
+
+        Ok((host, port))
     }
 
     pub fn scheme(&self) -> Scheme {
@@ -63,6 +66,20 @@ impl Url {
 
     pub fn host(&self) -> &str {
         &self.host
+    }
+
+    pub fn host_header(&self) -> String {
+        if let Scheme::Http = self.scheme
+            && self.port == 80
+        {
+            self.host.clone()
+        } else if let Scheme::Https = self.scheme
+            && self.port == 443
+        {
+            self.host.clone()
+        } else {
+            format!("{}:{}", self.host, self.port)
+        }
     }
 
     pub fn port(&self) -> u16 {
@@ -105,5 +122,22 @@ mod tests {
         assert_eq!(url.host(), "localhost");
         assert_eq!(url.port(), 8000);
         assert_eq!(url.path(), "/");
+    }
+
+    #[test]
+    fn host_header() {
+        let http_default: Url = "http://localhost/".parse().unwrap();
+        let http_explicit_default: Url = "http://localhost:80/".parse().unwrap();
+        let http_non_default: Url = "http://localhost:8080/".parse().unwrap();
+        let https_default: Url = "https://example.com/".parse().unwrap();
+        let https_explicit_default: Url = "https://example.com:443/".parse().unwrap();
+        let https_non_default: Url = "https://example.com:8443/".parse().unwrap();
+
+        assert_eq!(http_default.host_header(), "localhost");
+        assert_eq!(http_explicit_default.host_header(), "localhost");
+        assert_eq!(http_non_default.host_header(), "localhost:8080");
+        assert_eq!(https_default.host_header(), "example.com");
+        assert_eq!(https_explicit_default.host_header(), "example.com");
+        assert_eq!(https_non_default.host_header(), "example.com:8443");
     }
 }
