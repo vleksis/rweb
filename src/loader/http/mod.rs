@@ -1,5 +1,5 @@
+mod client;
 mod header;
-mod load;
 mod method;
 mod request;
 mod response;
@@ -8,9 +8,9 @@ mod status;
 mod url;
 mod version;
 
+pub use client::Client;
 pub use header::HeaderMap;
 pub use header::HeaderName;
-pub use load::load;
 pub use method::Method;
 pub use request::Builder;
 pub use request::Request;

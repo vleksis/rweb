@@ -1,17 +1,16 @@
 use std::env;
 
 use anyhow::Context;
+use rweb::loader::Client;
 use rweb::loader::Request;
 use rweb::loader::Url;
 use rweb::loader::http::HeaderName;
 use rweb::loader::http::Method;
 use rweb::loader::http::Version;
-use rweb::loader::load;
 
-#[derive(Debug)]
-struct Client {}
+mod browser {
+    use super::*;
 
-impl Client {
     pub fn show(html: &str) {
         let mut in_tag = false;
         for c in html.chars() {
@@ -25,7 +24,7 @@ impl Client {
         }
     }
 
-    async fn load(url: &Url) -> anyhow::Result<()> {
+    pub async fn load(client: &mut Client, url: &Url) -> anyhow::Result<()> {
         let req: Request = match url {
             Url::Http(url) => Request::builder()
                 .http()
@@ -33,7 +32,7 @@ impl Client {
                 .method(Method::GET)
                 .version(Version::HTTP11)
                 .header(HeaderName::HOST, &url.host_header())
-                .header(HeaderName::CONNECTION, "close")
+                .header(HeaderName::CONNECTION, "keep-alive")
                 .header(HeaderName::USER_AGENT, "RwebBrowser/0.1")
                 .build()?
                 .into(),
@@ -42,9 +41,9 @@ impl Client {
             Url::Data(url) => Request::builder().data().url(url).build()?.into(),
         };
 
-        let resp = load(req).await?;
+        let resp = client.load(req).await?;
         let body = resp.body_as_str()?;
-        Self::show(body);
+        show(body);
 
         Ok(())
     }
@@ -55,7 +54,9 @@ async fn main() -> anyhow::Result<()> {
     let url = env::args().nth(1).context("usage: rweb <url>")?;
     let url = url.parse()?;
 
-    Client::load(&url).await?;
+    let mut client = Client::builder().build();
+
+    browser::load(&mut client, &url).await?;
 
     Ok(())
 }

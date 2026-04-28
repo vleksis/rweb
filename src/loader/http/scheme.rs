@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::loader::http::UrlError;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Scheme {
     Http,
     Https,

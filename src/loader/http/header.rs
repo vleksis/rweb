@@ -37,6 +37,7 @@ impl std::fmt::Display for HeaderName {
 enum StandardHeaderName {
     Host,
     Connection,
+    ContentLength,
     UserAgent,
     TransferEncoding,
     ContentEncoding,
@@ -47,6 +48,7 @@ impl std::fmt::Display for StandardHeaderName {
         match self {
             StandardHeaderName::Host => write!(f, "host"),
             StandardHeaderName::Connection => write!(f, "connection"),
+            StandardHeaderName::ContentLength => write!(f, "content-length"),
             StandardHeaderName::UserAgent => write!(f, "user-agent"),
             StandardHeaderName::TransferEncoding => write!(f, "transfer-encoding"),
             StandardHeaderName::ContentEncoding => write!(f, "content-encoding"),
@@ -62,6 +64,7 @@ impl FromStr for StandardHeaderName {
         match s.as_str() {
             "host" => Ok(StandardHeaderName::Host),
             "connection" => Ok(StandardHeaderName::Connection),
+            "content-length" => Ok(StandardHeaderName::ContentLength),
             "user-agent" => Ok(StandardHeaderName::UserAgent),
             "transfer-encoding" => Ok(StandardHeaderName::TransferEncoding),
             "content-encoding" => Ok(StandardHeaderName::ContentEncoding),
@@ -90,6 +93,7 @@ impl FromStr for CustomHeaderName {
 impl HeaderName {
     pub const HOST: Self = Self(Inner::Standard(StandardHeaderName::Host));
     pub const CONNECTION: Self = Self(Inner::Standard(StandardHeaderName::Connection));
+    pub const CONTENT_LENGTH: Self = Self(Inner::Standard(StandardHeaderName::ContentLength));
     pub const USER_AGENT: Self = Self(Inner::Standard(StandardHeaderName::UserAgent));
     pub const TRANSFER_ENCODING: Self = Self(Inner::Standard(StandardHeaderName::TransferEncoding));
     pub const CONTENT_ENCODING: Self = Self(Inner::Standard(StandardHeaderName::ContentEncoding));

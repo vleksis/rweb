@@ -1,65 +1,18 @@
 use anyhow::Context;
 
 use crate::loader::http::HeaderMap;
+use crate::loader::http::HeaderName;
 use crate::loader::http::StatusCode;
 use crate::loader::http::Version;
 
 #[derive(Debug)]
-pub struct Response {
+pub struct Head {
     status: StatusCode,
     version: Version,
     headers: HeaderMap,
-    body: Vec<u8>,
 }
 
-impl TryFrom<&[u8]> for Response {
-    type Error = anyhow::Error;
-
-    fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
-        let (head, body) = {
-            let header_end = s
-                .windows(4)
-                .position(|w| w == b"\r\n\r\n")
-                .context("missing header/body separator")?;
-
-            (&s[..header_end], &s[header_end + 4..])
-        };
-
-        let head = std::str::from_utf8(head).context("invalid UTF-8 in header")?;
-        let mut lines = head.lines();
-
-        let mut status_line = lines.next().context("missing status line")?.splitn(3, " ");
-        let version = status_line
-            .next()
-            .context("missing HTTP version")?
-            .parse()?;
-        let status = status_line.next().context("missing status code")?.parse()?;
-        let _explanation = status_line.next().unwrap_or("");
-
-        let mut headers = HeaderMap::new();
-        for line in lines.by_ref() {
-            if line.is_empty() {
-                break;
-            }
-
-            if let Some((name, value)) = line.split_once(':') {
-                let name = name.trim();
-                let header = name.parse()?;
-                let value = value.trim();
-                headers.append(header, value);
-            }
-        }
-
-        Ok(Self {
-            status,
-            version,
-            headers,
-            body: body.to_vec(),
-        })
-    }
-}
-
-impl Response {
+impl Head {
     pub fn status(&self) -> StatusCode {
         self.status
     }
@@ -68,8 +21,110 @@ impl Response {
         self.version
     }
 
+    pub fn content_length(&self) -> Option<usize> {
+        self.headers.get(&HeaderName::CONTENT_LENGTH)?.parse().ok()
+    }
+
+    pub fn transfer_encoding(&self) -> Option<&str> {
+        self.headers.get(&HeaderName::TRANSFER_ENCODING)
+    }
+
+    pub fn content_encoding(&self) -> Option<&str> {
+        self.headers.get(&HeaderName::CONTENT_ENCODING)
+    }
+
+    pub fn connection(&self) -> Option<&str> {
+        self.headers.get(&HeaderName::CONNECTION)
+    }
+
+    pub fn is_connection_closed(&self) -> bool {
+        match self.connection() {
+            Some(value) => value == "close",
+            None => false,
+        }
+    }
+}
+
+impl TryFrom<&[u8]> for Head {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let raw = std::str::from_utf8(value).context("invalid UTF-8 in header")?;
+        let mut lines = raw.lines();
+
+        let mut status_line = lines.next().context("missing status line")?.splitn(3, ' ');
+        let version: Version = status_line
+            .next()
+            .context("missing HTTP version")?
+            .parse()?;
+        let status: StatusCode = status_line.next().context("missing status code")?.parse()?;
+        let _explanation = status_line.next().unwrap_or("");
+
+        let mut headers = HeaderMap::new();
+        for line in lines {
+            if let Some((name, value)) = line.split_once(':') {
+                let name = name.trim();
+                let header = name.parse()?;
+                let value = value.trim();
+                headers.append(header, value);
+            }
+        }
+
+        Ok(Head {
+            status,
+            version,
+            headers,
+        })
+    }
+}
+
+pub fn header_end(raw: &[u8]) -> Option<usize> {
+    raw.windows(4).position(|w| w == b"\r\n\r\n")
+}
+
+#[derive(Debug)]
+pub struct Response {
+    head: Head,
+    body: Vec<u8>,
+}
+
+impl TryFrom<&[u8]> for Response {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
+        let (head, body) = {
+            let header_end = header_end(s).context("missing header/body separator")?;
+            (&s[..header_end], &s[header_end + 4..])
+        };
+
+        let head = Head::try_from(head)?;
+
+        Ok(Self {
+            head,
+            body: body.to_vec(),
+        })
+    }
+}
+
+impl Response {
+    pub fn new(head: Head, body: Vec<u8>) -> Self {
+        Self { head, body }
+    }
+
+    pub fn status(&self) -> StatusCode {
+        self.head.status
+    }
+
+    pub fn version(&self) -> Version {
+        self.head.version
+    }
+
     pub fn headers(&self) -> &HeaderMap {
-        &self.headers
+        &self.head.headers
+    }
+
+    pub fn head(&self) -> &Head {
+        &self.head
     }
 
     pub fn body(&self) -> &[u8] {
