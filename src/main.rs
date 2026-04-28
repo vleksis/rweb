@@ -1,12 +1,12 @@
 use std::env;
 
 use anyhow::Context;
+use rweb::http::HeaderName;
+use rweb::http::Method;
+use rweb::http::Version;
 use rweb::loader::Client;
 use rweb::loader::Request;
 use rweb::loader::Url;
-use rweb::loader::http::HeaderName;
-use rweb::loader::http::Method;
-use rweb::loader::http::Version;
 
 mod browser {
     use super::*;

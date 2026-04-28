@@ -1,12 +1,12 @@
 use crate::loader::Request;
 use crate::loader::Response;
-use crate::loader::data;
-use crate::loader::file;
-use crate::loader::http;
+use crate::loader::data_client;
+use crate::loader::file_client;
+use crate::loader::http_client;
 
 #[derive(Debug)]
 pub struct Client {
-    http: http::Client,
+    http: http_client::Client,
 }
 
 impl Client {
@@ -17,8 +17,8 @@ impl Client {
     pub async fn load(&mut self, request: impl Into<Request>) -> anyhow::Result<Response> {
         let resp: Response = match request.into() {
             Request::Http(request) => self.http.load(request).await?.into(),
-            Request::File(request) => file::load(request).await?.into(),
-            Request::Data(request) => data::load(request).await?.into(),
+            Request::File(request) => file_client::load(request).await?.into(),
+            Request::Data(request) => data_client::load(request).await?.into(),
         };
 
         Ok(resp)
@@ -35,7 +35,7 @@ impl Builder {
 
     pub fn build(self) -> Client {
         Client {
-            http: http::Client::default(),
+            http: http_client::Client::default(),
         }
     }
 }

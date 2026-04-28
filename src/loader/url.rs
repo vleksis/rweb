@@ -1,14 +1,14 @@
 use std::str::FromStr;
 
-use crate::loader::data;
-use crate::loader::file;
-use crate::loader::http;
+use crate::http;
+use crate::loader::data_client;
+use crate::loader::file_client;
 
 #[derive(Debug)]
 pub enum Url {
     Http(http::Url),
-    File(file::Url),
-    Data(data::Url),
+    File(file_client::Url),
+    Data(data_client::Url),
 }
 
 impl From<http::Url> for Url {
@@ -17,14 +17,14 @@ impl From<http::Url> for Url {
     }
 }
 
-impl From<file::Url> for Url {
-    fn from(url: file::Url) -> Self {
+impl From<file_client::Url> for Url {
+    fn from(url: file_client::Url) -> Self {
         Url::File(url)
     }
 }
 
-impl From<data::Url> for Url {
-    fn from(url: data::Url) -> Self {
+impl From<data_client::Url> for Url {
+    fn from(url: data_client::Url) -> Self {
         Url::Data(url)
     }
 }

@@ -1,6 +1,6 @@
-pub mod data;
-pub mod file;
-pub mod http;
+pub mod data_client;
+pub mod file_client;
+pub mod http_client;
 
 mod client;
 mod request;

@@ -1,4 +1,3 @@
-mod client;
 mod header;
 mod method;
 mod request;
@@ -8,13 +7,14 @@ mod status;
 mod url;
 mod version;
 
-pub use client::Client;
 pub use header::HeaderMap;
 pub use header::HeaderName;
 pub use method::Method;
 pub use request::Builder;
 pub use request::Request;
+pub use response::Head;
 pub use response::Response;
+pub use response::header_end;
 pub use scheme::Scheme;
 pub use status::StatusCode;
 pub use url::Url;

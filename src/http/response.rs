@@ -1,9 +1,9 @@
 use anyhow::Context;
 
-use crate::loader::http::HeaderMap;
-use crate::loader::http::HeaderName;
-use crate::loader::http::StatusCode;
-use crate::loader::http::Version;
+use crate::http::HeaderMap;
+use crate::http::HeaderName;
+use crate::http::StatusCode;
+use crate::http::Version;
 
 #[derive(Debug)]
 pub struct Head {

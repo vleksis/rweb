@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
-use crate::loader::http::Scheme;
+use crate::http::Scheme;
 
 #[derive(Debug, Error)]
 pub enum UrlError {

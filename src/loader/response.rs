@@ -1,12 +1,12 @@
-use crate::loader::data;
-use crate::loader::file;
-use crate::loader::http;
+use crate::http;
+use crate::loader::data_client;
+use crate::loader::file_client;
 
 #[derive(Debug)]
 pub enum Response {
     Http(http::Response),
-    File(file::Response),
-    Data(data::Response),
+    File(file_client::Response),
+    Data(data_client::Response),
 }
 
 impl From<http::Response> for Response {
@@ -15,14 +15,14 @@ impl From<http::Response> for Response {
     }
 }
 
-impl From<file::Response> for Response {
-    fn from(resp: file::Response) -> Self {
+impl From<file_client::Response> for Response {
+    fn from(resp: file_client::Response) -> Self {
         Self::File(resp)
     }
 }
 
-impl From<data::Response> for Response {
-    fn from(resp: data::Response) -> Self {
+impl From<data_client::Response> for Response {
+    fn from(resp: data_client::Response) -> Self {
         Self::Data(resp)
     }
 }

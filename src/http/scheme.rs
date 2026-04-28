@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::loader::http::UrlError;
+use crate::http::UrlError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Scheme {

@@ -1,11 +1,11 @@
 use anyhow::Context;
 
-use crate::loader::http::HeaderMap;
-use crate::loader::http::HeaderName;
-use crate::loader::http::Method;
-use crate::loader::http::Scheme;
-use crate::loader::http::Url;
-use crate::loader::http::Version;
+use crate::http::HeaderMap;
+use crate::http::HeaderName;
+use crate::http::Method;
+use crate::http::Scheme;
+use crate::http::Url;
+use crate::http::Version;
 
 #[derive(Debug)]
 pub struct Request {

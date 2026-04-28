@@ -8,11 +8,11 @@ use tokio::net::TcpStream;
 use tokio_native_tls::TlsConnector;
 use tokio_native_tls::native_tls;
 
-use crate::loader::http::Request;
-use crate::loader::http::Response;
-use crate::loader::http::Scheme;
-use crate::loader::http::response::Head;
-use crate::loader::http::response::header_end;
+use crate::http::Head;
+use crate::http::Request;
+use crate::http::Response;
+use crate::http::Scheme;
+use crate::http::header_end;
 
 #[derive(Debug, Default)]
 pub struct Client {
