@@ -99,7 +99,7 @@ impl HeaderName {
     pub const CONTENT_ENCODING: Self = Self(Inner::Standard(StandardHeaderName::ContentEncoding));
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct HeaderMap {
     headers: HashMap<HeaderName, Vec<String>>,
 }

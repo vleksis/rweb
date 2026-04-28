@@ -1,7 +1,7 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Method(MethodInner);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MethodInner {
     Get,
 }

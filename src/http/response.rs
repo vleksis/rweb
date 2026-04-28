@@ -5,7 +5,7 @@ use crate::http::HeaderName;
 use crate::http::StatusCode;
 use crate::http::Version;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Head {
     status: StatusCode,
     version: Version,
@@ -82,7 +82,7 @@ pub fn header_end(raw: &[u8]) -> Option<usize> {
     raw.windows(4).position(|w| w == b"\r\n\r\n")
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Response {
     head: Head,
     body: Vec<u8>,

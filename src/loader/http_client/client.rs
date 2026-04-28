@@ -179,3 +179,100 @@ impl Client {
         Ok(response)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
+    use tokio::io::AsyncReadExt;
+    use tokio::io::AsyncWriteExt;
+    use tokio::net::TcpListener;
+    use tokio::net::TcpStream;
+
+    use super::*;
+    use crate::http::HeaderName;
+    use crate::http::Method;
+    use crate::http::Request;
+    use crate::http::Url;
+    use crate::http::Version;
+    use crate::http::header_end;
+
+    #[tokio::test]
+    async fn reuses_keep_alive_connection() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let accepted = Arc::new(AtomicUsize::new(0));
+        let handled = Arc::new(AtomicUsize::new(0));
+
+        tokio::spawn({
+            let accepted = Arc::clone(&accepted);
+            let handled = Arc::clone(&handled);
+
+            async move {
+                loop {
+                    let (stream, _) = listener.accept().await.unwrap();
+                    accepted.fetch_add(1, Ordering::SeqCst);
+
+                    tokio::spawn(handle_connection(stream, Arc::clone(&handled)));
+                }
+            }
+        });
+
+        let url: Url = format!("http://{addr}/").parse().unwrap();
+        let mut client = Client::default();
+
+        let req = Request::builder()
+            .method(Method::GET)
+            .version(Version::HTTP11)
+            .url(url.clone())
+            .header(HeaderName::HOST, &url.host_header())
+            .header(HeaderName::CONNECTION, "keep-alive")
+            .build()
+            .unwrap();
+
+        for i in 1..100 {
+            client.load(req.clone()).await.unwrap();
+            assert_eq!(handled.load(Ordering::SeqCst), i);
+            assert_eq!(client.connections.len(), 1);
+        }
+
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+    }
+
+    async fn handle_connection(mut stream: TcpStream, handled: Arc<AtomicUsize>) {
+        loop {
+            if read_request(&mut stream).await.is_err() {
+                return;
+            }
+
+            handled.fetch_add(1, Ordering::SeqCst);
+
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: keep-alive\r\n\r\nOK",
+                )
+                .await
+                .unwrap();
+        }
+    }
+
+    async fn read_request(stream: &mut TcpStream) -> anyhow::Result<()> {
+        let mut raw = Vec::new();
+        let mut buf = [0; 1024];
+
+        loop {
+            let read = stream.read(&mut buf).await?;
+            if read == 0 {
+                anyhow::bail!("connection closed before request completed");
+            }
+
+            raw.extend_from_slice(&buf[..read]);
+
+            if header_end(&raw).is_some() {
+                return Ok(());
+            }
+        }
+    }
+}

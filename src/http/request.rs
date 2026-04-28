@@ -7,7 +7,7 @@ use crate::http::Scheme;
 use crate::http::Url;
 use crate::http::Version;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Request {
     method: Method,
     url: Url,
