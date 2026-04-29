@@ -6,10 +6,10 @@ The goal of this project is to learn how browsers work by building the core piec
 
 ## Status
 
-This repository is in an early stage. The project structure and implementation
-will grow as chapters from Web Browser Engineering are completed.
+This repository is in an early stage. The project structure and implementation will grow as chapters from Web Browser Engineering are completed.
 
 Completed:
+
 - [x] [Chapter 1. Downloading Web Pages](https://browser.engineering/http.html)
   - [x] 1-1 HTTP/1.1
   - [x] 1-2 File URLs (does not default to a file when no URL is provided)
@@ -23,10 +23,8 @@ Completed:
 
 ## Reference
 
-- [Web Browser Engineering](https://browser.engineering/) by Pavel Panchekha and
-  Chris Harrelson
+- [Web Browser Engineering](https://browser.engineering/) by Pavel Panchekha and Chris Harrelson
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for
-details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
