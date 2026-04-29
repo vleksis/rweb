@@ -1,11 +1,7 @@
 use std::env;
 
 use anyhow::Context;
-use rweb::http::HeaderName;
-use rweb::http::Method;
-use rweb::http::Version;
 use rweb::loader::Client;
-use rweb::loader::Request;
 use rweb::loader::Url;
 
 mod browser {
@@ -25,23 +21,7 @@ mod browser {
     }
 
     pub async fn load(client: &mut Client, url: &Url) -> anyhow::Result<()> {
-        let req: Request = match url {
-            Url::Http(url) => Request::builder()
-                .http()
-                .url(url.clone())
-                .method(Method::GET)
-                .version(Version::HTTP11)
-                .header(HeaderName::HOST, &url.host_header())
-                .header(HeaderName::CONNECTION, "keep-alive")
-                .header(HeaderName::USER_AGENT, "RwebBrowser/0.1")
-                .build()?
-                .into(),
-
-            Url::File(url) => Request::builder().file().url(url).build()?.into(),
-            Url::Data(url) => Request::builder().data().url(url).build()?.into(),
-        };
-
-        let resp = client.load(req).await?;
+        let resp = client.load_url(url).await?;
         let body = resp.body_as_str()?;
         show(body);
 

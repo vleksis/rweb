@@ -89,6 +89,25 @@ impl Url {
     pub fn path(&self) -> &str {
         &self.path
     }
+
+    pub fn resolve(&self, location: &str) -> anyhow::Result<Self> {
+        if location.starts_with("http://") || location.starts_with("https://") {
+            return location.parse();
+        }
+
+        if location.starts_with('/') {
+            let url = Self {
+                scheme: self.scheme,
+                host: self.host.clone(),
+                port: self.port,
+                path: location.to_string(),
+            };
+
+            return Ok(url);
+        }
+
+        anyhow::bail!("unsupported redirect location: {location}")
+    }
 }
 
 #[cfg(test)]
@@ -139,5 +158,50 @@ mod tests {
         assert_eq!(https_default.host_header(), "example.com");
         assert_eq!(https_explicit_default.host_header(), "example.com");
         assert_eq!(https_non_default.host_header(), "example.com:8443");
+    }
+
+    #[test]
+    fn resolves_absolute_http_redirect_location() {
+        let base: Url = "http://example.com/start".parse().unwrap();
+
+        let resolved = base.resolve("http://other.example/final").unwrap();
+
+        assert!(matches!(resolved.scheme(), Scheme::Http));
+        assert_eq!(resolved.host(), "other.example");
+        assert_eq!(resolved.port(), 80);
+        assert_eq!(resolved.path(), "/final");
+    }
+
+    #[test]
+    fn resolves_absolute_https_redirect_location() {
+        let base: Url = "http://example.com/start".parse().unwrap();
+
+        let resolved = base.resolve("https://secure.example/final").unwrap();
+
+        assert!(matches!(resolved.scheme(), Scheme::Https));
+        assert_eq!(resolved.host(), "secure.example");
+        assert_eq!(resolved.port(), 443);
+        assert_eq!(resolved.path(), "/final");
+    }
+
+    #[test]
+    fn resolves_same_origin_absolute_path_redirect_location() {
+        let base: Url = "https://example.com:8443/start".parse().unwrap();
+
+        let resolved = base.resolve("/final").unwrap();
+
+        assert!(matches!(resolved.scheme(), Scheme::Https));
+        assert_eq!(resolved.host(), "example.com");
+        assert_eq!(resolved.port(), 8443);
+        assert_eq!(resolved.path(), "/final");
+    }
+
+    #[test]
+    fn rejects_unsupported_redirect_location_scheme() {
+        let base: Url = "http://example.com/start".parse().unwrap();
+
+        let result = base.resolve("data:text/html,Hello");
+
+        assert!(result.is_err());
     }
 }

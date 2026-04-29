@@ -41,6 +41,7 @@ enum StandardHeaderName {
     UserAgent,
     TransferEncoding,
     ContentEncoding,
+    Location,
 }
 
 impl std::fmt::Display for StandardHeaderName {
@@ -52,6 +53,7 @@ impl std::fmt::Display for StandardHeaderName {
             StandardHeaderName::UserAgent => write!(f, "user-agent"),
             StandardHeaderName::TransferEncoding => write!(f, "transfer-encoding"),
             StandardHeaderName::ContentEncoding => write!(f, "content-encoding"),
+            StandardHeaderName::Location => write!(f, "location"),
         }
     }
 }
@@ -68,6 +70,7 @@ impl FromStr for StandardHeaderName {
             "user-agent" => Ok(StandardHeaderName::UserAgent),
             "transfer-encoding" => Ok(StandardHeaderName::TransferEncoding),
             "content-encoding" => Ok(StandardHeaderName::ContentEncoding),
+            "location" => Ok(StandardHeaderName::Location),
             _ => Err(anyhow::anyhow!("invalid standard header name")),
         }
     }
@@ -97,6 +100,7 @@ impl HeaderName {
     pub const USER_AGENT: Self = Self(Inner::Standard(StandardHeaderName::UserAgent));
     pub const TRANSFER_ENCODING: Self = Self(Inner::Standard(StandardHeaderName::TransferEncoding));
     pub const CONTENT_ENCODING: Self = Self(Inner::Standard(StandardHeaderName::ContentEncoding));
+    pub const LOCATION: Self = Self(Inner::Standard(StandardHeaderName::Location));
 }
 
 #[derive(Debug, Clone, Default)]

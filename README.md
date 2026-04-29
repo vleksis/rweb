@@ -17,7 +17,7 @@ Completed:
   - [ ] 1-4 Entities
   - [ ] 1-5 view-source
   - [x] 1-6 Keep-alive
-  - [ ] 1-7 Redirects
+  - [x] 1-7 Redirects
   - [ ] 1-8 Caching
   - [ ] 1-9 Compression
 

@@ -39,9 +39,13 @@ impl Head {
 
     pub fn is_connection_closed(&self) -> bool {
         match self.connection() {
-            Some(value) => value == "close",
+            Some(value) => value.eq_ignore_ascii_case("close"),
             None => false,
         }
+    }
+
+    pub fn location(&self) -> Option<&str> {
+        self.headers.get(&HeaderName::LOCATION)
     }
 }
 

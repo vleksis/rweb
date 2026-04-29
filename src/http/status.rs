@@ -11,3 +11,13 @@ impl FromStr for StatusCode {
         Ok(StatusCode(code))
     }
 }
+
+impl StatusCode {
+    pub fn is_success(self) -> bool {
+        (200..300).contains(&self.0)
+    }
+
+    pub fn is_redirect(self) -> bool {
+        [301, 302, 303, 307, 308].contains(&self.0)
+    }
+}

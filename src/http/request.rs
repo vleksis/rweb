@@ -32,6 +32,10 @@ impl Request {
         self.url.scheme()
     }
 
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+
     pub fn as_bytes(&self) -> Vec<u8> {
         self.to_string().into_bytes()
     }
