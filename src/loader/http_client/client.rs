@@ -249,8 +249,7 @@ mod tests {
             let (mut stream, _) = listener.accept().await.unwrap();
 
             read_request(&mut stream).await.unwrap();
-            stream
-                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK")
+            write_response(&mut stream, "200 OK", &[], "OK")
                 .await
                 .unwrap();
         });
@@ -273,18 +272,14 @@ mod tests {
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             read_request(&mut stream).await.unwrap();
-            stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: keep-alive\r\n\r\nOK",
-                )
+            write_response_with_connection(&mut stream, "200 OK", "keep-alive", &[], "OK")
                 .await
                 .unwrap();
             drop(stream);
 
             let (mut stream, _) = listener.accept().await.unwrap();
             read_request(&mut stream).await.unwrap();
-            stream
-                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK")
+            write_response(&mut stream, "200 OK", &[], "OK")
                 .await
                 .unwrap();
         });
@@ -312,16 +307,13 @@ mod tests {
 
             handled.fetch_add(1, Ordering::SeqCst);
 
-            stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: keep-alive\r\n\r\nOK",
-                )
+            write_response_with_connection(&mut stream, "200 OK", "keep-alive", &[], "OK")
                 .await
                 .unwrap();
         }
     }
 
-    async fn read_request(stream: &mut TcpStream) -> anyhow::Result<()> {
+    async fn read_request(stream: &mut TcpStream) -> anyhow::Result<String> {
         let mut raw = Vec::new();
         let mut buf = [0; 1024];
 
@@ -334,9 +326,44 @@ mod tests {
             raw.extend_from_slice(&buf[..read]);
 
             if header_end(&raw).is_some() {
-                return Ok(());
+                return Ok(String::from_utf8(raw)?);
             }
         }
+    }
+
+    async fn write_response(
+        stream: &mut TcpStream,
+        status: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> anyhow::Result<()> {
+        write_response_with_connection(stream, status, "close", headers, body).await
+    }
+
+    async fn write_response_with_connection(
+        stream: &mut TcpStream,
+        status: &str,
+        connection: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> anyhow::Result<()> {
+        let mut response = format!(
+            "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: {connection}\r\n",
+            body.len()
+        );
+
+        for (name, value) in headers {
+            response.push_str(name);
+            response.push_str(": ");
+            response.push_str(value);
+            response.push_str("\r\n");
+        }
+
+        response.push_str("\r\n");
+        response.push_str(body);
+        stream.write_all(response.as_bytes()).await?;
+
+        Ok(())
     }
 
     fn get(url: &Url) -> Request {
