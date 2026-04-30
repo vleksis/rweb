@@ -241,6 +241,69 @@ mod tests {
         assert_eq!(accepted.load(Ordering::SeqCst), 1);
     }
 
+    #[tokio::test]
+    async fn does_not_store_connection_when_response_says_close() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+
+            read_request(&mut stream).await.unwrap();
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK")
+                .await
+                .unwrap();
+        });
+
+        let url: Url = format!("http://{addr}/").parse().unwrap();
+        let mut client = Client::default();
+        let req = get(&url);
+
+        let response = client.load(req).await.unwrap();
+        server.await.unwrap();
+
+        assert_eq!(response.body_as_str().unwrap(), "OK");
+        assert_eq!(client.connections.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn reconnects_when_pooled_connection_was_closed() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_request(&mut stream).await.unwrap();
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: keep-alive\r\n\r\nOK",
+                )
+                .await
+                .unwrap();
+            drop(stream);
+
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_request(&mut stream).await.unwrap();
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK")
+                .await
+                .unwrap();
+        });
+
+        let url: Url = format!("http://{addr}/").parse().unwrap();
+        let mut client = Client::default();
+        let req = get(&url);
+
+        let response = client.load(req.clone()).await.unwrap();
+        assert_eq!(response.body_as_str().unwrap(), "OK");
+        assert_eq!(client.connections.len(), 1);
+
+        let response = client.load(req).await.unwrap();
+        server.await.unwrap();
+
+        assert_eq!(response.body_as_str().unwrap(), "OK");
+        assert_eq!(client.connections.len(), 0);
+    }
+
     async fn handle_connection(mut stream: TcpStream, handled: Arc<AtomicUsize>) {
         loop {
             if read_request(&mut stream).await.is_err() {
@@ -274,5 +337,16 @@ mod tests {
                 return Ok(());
             }
         }
+    }
+
+    fn get(url: &Url) -> Request {
+        Request::builder()
+            .method(Method::GET)
+            .version(Version::HTTP11)
+            .url(url.clone())
+            .header(HeaderName::HOST, &url.host_header())
+            .header(HeaderName::CONNECTION, "keep-alive")
+            .build()
+            .unwrap()
     }
 }
