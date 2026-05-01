@@ -1,8 +1,7 @@
-pub mod data_client;
-pub mod file_client;
-pub mod http_client;
-
 mod client;
+mod data_client;
+mod file_client;
+mod http_client;
 mod response;
 mod url;
 

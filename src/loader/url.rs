@@ -4,7 +4,7 @@ use crate::http;
 use crate::loader::data_client;
 use crate::loader::file_client;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Url {
     Http(http::Url),
     File(file_client::Url),

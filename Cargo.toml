@@ -5,6 +5,10 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
+font8x8 = "0.3"
+skia-safe = { version = "0.97.0", features = ["textlayout"] }
+softbuffer = "0.4"
 thiserror = "2.0.18"
 tokio = { version = "1.52.1", features = ["full", "macros", "rt-multi-thread"] }
 tokio-native-tls = "0.3"
+winit = "0.30.13"

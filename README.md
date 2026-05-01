@@ -20,6 +20,14 @@ Completed:
   - [x] 1-7 Redirects
   - [ ] 1-8 Caching
   - [ ] 1-9 Compression
+- [x] [Chapter 2. Drawing to the Screen](https://browser.engineering/graphics.html)
+  - [x] 2-1 Line breaks
+  - [x] 2-2 Mouse wheel 
+  - [x] 2-3 Resizing
+  - [ ] 2-4 Scrollbar
+  - [ ] 2-5 Emoji
+  - [ ] 2-6 about:blank
+  - [ ] 2-7 Alternate text direction
 
 ## Reference
 
