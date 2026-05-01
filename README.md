@@ -28,7 +28,7 @@ Completed:
   - [ ] 2-5 Emoji
   - [ ] 2-6 about:blank
   - [ ] 2-7 Alternate text direction
-- [ ] [Chapter 3. Formatting Text](https://browser.engineering/text.html)
+- [x] [Chapter 3. Formatting Text](https://browser.engineering/text.html)
   - [ ] 3-1 Centered text
   - [ ] 3-2 Superscripts
   - [ ] 3-3 Soft hyphens

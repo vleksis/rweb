@@ -33,24 +33,7 @@ async fn load_page(url: Url) -> anyhow::Result<LoadedPage> {
     let mut client = Client::builder().build();
     let response = client.load_url(&url).await?;
     let body = response.body_as_str()?;
-    let text = render_text(body);
+    let source = body.to_string();
 
-    Ok(LoadedPage { url, text })
-}
-
-fn render_text(html: &str) -> String {
-    let mut text = String::new();
-    let mut tag_level = 0;
-
-    for c in html.chars() {
-        if c == '<' {
-            tag_level += 1;
-        } else if c == '>' {
-            tag_level -= 1;
-        } else if tag_level == 0 {
-            text.push(c);
-        }
-    }
-
-    text
+    Ok(LoadedPage { url, source })
 }

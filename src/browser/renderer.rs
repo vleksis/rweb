@@ -1,20 +1,12 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
-
 use skia_safe::Canvas;
 use skia_safe::Color;
-use skia_safe::Font;
-use skia_safe::FontMgr;
-use skia_safe::FontStyle;
 use skia_safe::Paint;
 use skia_safe::Rect as SkRect;
-use skia_safe::Unichar;
 use skia_safe::colors::BLACK;
 
 use crate::browser::display::CssPx;
 use crate::browser::display::DisplayItem;
-use crate::browser::display::FONT_SIZE;
-use crate::browser::display::VSTEP;
+use crate::browser::font;
 
 const SCROLLBAR_TRACK: Color = Color::from_rgb(0xf0, 0xf0, 0xf0);
 const SCROLLBAR_THUMB: Color = Color::from_rgb(0x88, 0x88, 0x88);
@@ -62,12 +54,13 @@ impl Renderer {
             if y > height as CssPx {
                 continue;
             }
-            if y + VSTEP < 0.0 {
+            let metrics = font::font_metrics(item.style);
+            if y + metrics.ascent + metrics.descent < 0.0 {
                 continue;
             }
 
-            let font = font_for(item.c);
-            canvas.draw_str(item.c.to_string(), (item.x, y + FONT_SIZE), &font, &paint);
+            let font = font::font_for_text(&item.text, item.style);
+            canvas.draw_str(&item.text, (item.x, y + metrics.ascent), &font, &paint);
         }
 
         Self::draw_scrollbar(&canvas, width, height, scroll_y, content_height);
@@ -126,70 +119,6 @@ impl Renderer {
             paint,
         );
     }
-}
-
-struct Fonts {
-    manager: FontMgr,
-    default: Font,
-    default_family: String,
-    fallback: HashMap<char, Font>,
-}
-
-impl Fonts {
-    fn new() -> Self {
-        let manager = FontMgr::new();
-        let default = manager
-            .legacy_make_typeface(None, FontStyle::normal())
-            .map(|typeface| Font::from_typeface(typeface, FONT_SIZE))
-            .unwrap_or_default();
-        let default = make_font(default);
-        let default_family = default.typeface().family_name();
-
-        Self {
-            manager,
-            default,
-            default_family,
-            fallback: HashMap::new(),
-        }
-    }
-
-    fn get(&mut self, c: char) -> Font {
-        if self.default.unichar_to_glyph(c as Unichar) != 0 {
-            return self.default.clone();
-        }
-
-        self.fallback
-            .entry(c)
-            .or_insert_with(|| {
-                self.manager
-                    .match_family_style_character(
-                        &self.default_family,
-                        FontStyle::normal(),
-                        &[],
-                        c as Unichar,
-                    )
-                    .map(|typeface| make_font(Font::from_typeface(typeface, FONT_SIZE)))
-                    .unwrap_or_else(|| self.default.clone())
-            })
-            .clone()
-    }
-}
-
-thread_local! {
-    static FONTS: RefCell<Fonts> = RefCell::new(Fonts::new());
-}
-
-fn font_for(c: char) -> Font {
-    FONTS.with(|fonts| {
-        let mut fonts = fonts.borrow_mut();
-        fonts.get(c)
-    })
-}
-
-fn make_font(mut font: Font) -> Font {
-    font.set_size(FONT_SIZE);
-    font.set_subpixel(true);
-    font
 }
 
 #[cfg(test)]
