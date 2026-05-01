@@ -1,3 +1,4 @@
+use crate::browser::display::CssPx;
 use crate::browser::display::DisplayItem;
 use crate::browser::page::LoadedPage;
 use crate::browser::tab::Tab;
@@ -26,13 +27,13 @@ impl Browser {
         self.active_tab_mut().finish_navigation(result);
     }
 
-    pub fn layout_active_page(&mut self, viewport_width: i32, viewport_height: i32) {
+    pub fn layout_active_page(&mut self, viewport_width: CssPx, viewport_height: CssPx) {
         let page = self.active_tab_mut().page_mut().page_mut();
         page.layout(viewport_width);
         page.clamp_scroll(viewport_height);
     }
 
-    pub fn scroll_active_page(&mut self, delta: i32) {
+    pub fn scroll_active_page(&mut self, delta: CssPx) {
         self.active_tab_mut().page_mut().page_mut().scroll(delta);
     }
 
@@ -44,7 +45,7 @@ impl Browser {
         self.active_window_mut().active_tab_mut()
     }
 
-    pub fn active_scroll_y(&self) -> i32 {
+    pub fn active_scroll_y(&self) -> CssPx {
         self.active_tab().page().page().scroll_y()
     }
 
@@ -52,7 +53,7 @@ impl Browser {
         self.active_tab().page().page().display_list()
     }
 
-    pub fn active_page_height(&self) -> i32 {
+    pub fn active_page_height(&self) -> CssPx {
         self.active_tab().page().page().height()
     }
 

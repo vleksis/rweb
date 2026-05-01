@@ -11,23 +11,24 @@ use skia_safe::Rect as SkRect;
 use skia_safe::Unichar;
 use skia_safe::colors::BLACK;
 
+use crate::browser::display::CssPx;
 use crate::browser::display::DisplayItem;
 use crate::browser::display::FONT_SIZE;
 use crate::browser::display::VSTEP;
 
 const SCROLLBAR_TRACK: Color = Color::from_rgb(0xf0, 0xf0, 0xf0);
 const SCROLLBAR_THUMB: Color = Color::from_rgb(0x88, 0x88, 0x88);
-const SCROLLBAR_WIDTH: i32 = 8;
-const MIN_THUMB_HEIGHT: i32 = 20;
+const SCROLLBAR_WIDTH: CssPx = 8.0;
+const MIN_THUMB_HEIGHT: CssPx = 20.0;
 
 const BACKGROUND: Color = Color::from_rgb(0xff, 0xff, 0xff);
 const FOREGROUND: Color = Color::from_rgb(0x11, 0x11, 0x11);
 
 struct Rect {
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
+    x: CssPx,
+    y: CssPx,
+    width: CssPx,
+    height: CssPx,
 }
 
 pub struct Renderer;
@@ -38,8 +39,8 @@ impl Renderer {
         width: u32,
         height: u32,
         display_list: &[DisplayItem],
-        scroll_y: i32,
-        content_height: i32,
+        scroll_y: CssPx,
+        content_height: CssPx,
     ) {
         let Ok(width_i32) = i32::try_from(width) else {
             return;
@@ -58,20 +59,15 @@ impl Renderer {
         paint.set_color(FOREGROUND);
         for item in display_list {
             let y = item.y - scroll_y;
-            if y > height as i32 {
+            if y > height as CssPx {
                 continue;
             }
-            if y + VSTEP < 0 {
+            if y + VSTEP < 0.0 {
                 continue;
             }
 
             let font = font_for(item.c);
-            canvas.draw_str(
-                item.c.to_string(),
-                (item.x as f32, y as f32 + FONT_SIZE),
-                &font,
-                &paint,
-            );
+            canvas.draw_str(item.c.to_string(), (item.x, y + FONT_SIZE), &font, &paint);
         }
 
         Self::draw_scrollbar(&canvas, width, height, scroll_y, content_height);
@@ -81,15 +77,15 @@ impl Renderer {
         canvas: &Canvas,
         width: u32,
         height: u32,
-        scroll_y: i32,
-        content_height: i32,
+        scroll_y: CssPx,
+        content_height: CssPx,
     ) {
-        let viewport_height = height as i32;
+        let viewport_height = height as CssPx;
         if content_height <= viewport_height {
             return;
         }
 
-        let track_x = width as i32 - SCROLLBAR_WIDTH;
+        let track_x = width as CssPx - SCROLLBAR_WIDTH;
         let thumb_height =
             (viewport_height * viewport_height / content_height).max(MIN_THUMB_HEIGHT);
         let max_scroll = content_height - viewport_height;
@@ -103,7 +99,7 @@ impl Renderer {
             canvas,
             Rect {
                 x: track_x,
-                y: 0,
+                y: 0.0,
                 width: SCROLLBAR_WIDTH,
                 height: viewport_height,
             },
@@ -126,12 +122,7 @@ impl Renderer {
     fn draw_rect(canvas: &Canvas, rect: Rect, fill: Color, paint: &mut Paint) {
         paint.set_color(fill);
         canvas.draw_rect(
-            SkRect::from_xywh(
-                rect.x as f32,
-                rect.y as f32,
-                rect.width as f32,
-                rect.height as f32,
-            ),
+            SkRect::from_xywh(rect.x, rect.y, rect.width, rect.height),
             paint,
         );
     }

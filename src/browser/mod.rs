@@ -8,6 +8,7 @@ mod tab;
 mod window;
 
 pub use app::Browser;
+pub use display::CssPx;
 pub use display::DisplayItem;
 pub use display::FONT_SIZE;
 pub use display::GLYPH_SIZE;

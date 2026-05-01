@@ -4,6 +4,7 @@ use std::rc::Rc;
 use anyhow::Context;
 use rweb::browser::Browser;
 use rweb::browser::BrowserEvent;
+use rweb::browser::CssPx;
 use rweb::browser::Loader;
 use rweb::browser::Renderer;
 use rweb::browser::VSTEP;
@@ -94,7 +95,8 @@ impl App {
         let width = buffer.width().get();
         let height = buffer.height().get();
 
-        self.browser.layout_active_page(width as i32, height as i32);
+        self.browser
+            .layout_active_page(width as CssPx, height as CssPx);
         Renderer::draw(
             &mut buffer,
             width,
@@ -110,8 +112,8 @@ impl App {
 
     fn scroll(&mut self, delta: MouseScrollDelta) {
         let amount = match delta {
-            MouseScrollDelta::LineDelta(_, y) => -(y * VSTEP as f32 * 3.0) as i32,
-            MouseScrollDelta::PixelDelta(position) => -position.y as i32,
+            MouseScrollDelta::LineDelta(_, y) => -(y * VSTEP * 3.0),
+            MouseScrollDelta::PixelDelta(position) => -position.y as CssPx,
         };
 
         self.browser.scroll_active_page(amount);
@@ -197,11 +199,11 @@ impl App {
         match event.state {
             ElementState::Pressed => match event.logical_key {
                 Key::Named(NamedKey::ArrowDown) => {
-                    self.browser.scroll_active_page(VSTEP * 3);
+                    self.browser.scroll_active_page(VSTEP * 3.0);
                     self.request_redraw();
                 }
                 Key::Named(NamedKey::ArrowUp) => {
-                    self.browser.scroll_active_page(-VSTEP * 3);
+                    self.browser.scroll_active_page(-VSTEP * 3.0);
                     self.request_redraw();
                 }
 

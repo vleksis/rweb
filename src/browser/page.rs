@@ -1,3 +1,4 @@
+use crate::browser::display::CssPx;
 use crate::browser::display::DisplayItem;
 use crate::browser::display::GLYPH_SIZE;
 use crate::browser::display::HSTEP;
@@ -37,8 +38,8 @@ pub struct Page {
     url: Url,
     text: String,
     display_list: Vec<DisplayItem>,
-    layout_width: Option<i32>,
-    scroll_y: i32,
+    layout_width: Option<CssPx>,
+    scroll_y: CssPx,
 }
 
 impl Page {
@@ -48,7 +49,7 @@ impl Page {
             text: loaded.text,
             display_list: Vec::new(),
             layout_width: None,
-            scroll_y: 0,
+            scroll_y: 0.0,
         }
     }
 
@@ -58,7 +59,7 @@ impl Page {
             text: "Loading...".to_string(),
             display_list: Vec::new(),
             layout_width: None,
-            scroll_y: 0,
+            scroll_y: 0.0,
         }
     }
 
@@ -68,11 +69,11 @@ impl Page {
             text: format!("Failed to load page:\n{message}"),
             display_list: Vec::new(),
             layout_width: None,
-            scroll_y: 0,
+            scroll_y: 0.0,
         }
     }
 
-    pub fn layout(&mut self, viewport_width: i32) {
+    pub fn layout(&mut self, viewport_width: CssPx) {
         if self.layout_width == Some(viewport_width) {
             return;
         }
@@ -89,7 +90,7 @@ impl Page {
 
             if ch == '\n' {
                 x = MARGIN;
-                y += (1.2 * VSTEP as f64) as i32;
+                y += 1.2 * VSTEP;
                 continue;
             }
 
@@ -106,15 +107,17 @@ impl Page {
         self.layout_width = Some(viewport_width);
     }
 
-    pub fn scroll(&mut self, delta: i32) {
-        self.scroll_y = (self.scroll_y + delta).max(0);
+    pub fn scroll(&mut self, delta: CssPx) {
+        self.scroll_y = (self.scroll_y + delta).max(0.0);
     }
 
-    pub fn clamp_scroll(&mut self, viewport_height: i32) {
-        self.scroll_y = self.scroll_y.min((self.height() - viewport_height).max(0));
+    pub fn clamp_scroll(&mut self, viewport_height: CssPx) {
+        self.scroll_y = self
+            .scroll_y
+            .min((self.height() - viewport_height).max(0.0));
     }
 
-    pub fn height(&self) -> i32 {
+    pub fn height(&self) -> CssPx {
         self.display_list
             .last()
             .map(|item| item.y + VSTEP)
@@ -125,7 +128,7 @@ impl Page {
         &self.display_list
     }
 
-    pub fn scroll_y(&self) -> i32 {
+    pub fn scroll_y(&self) -> CssPx {
         self.scroll_y
     }
 
