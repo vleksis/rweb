@@ -22,12 +22,18 @@ Completed:
   - [ ] 1-9 Compression
 - [x] [Chapter 2. Drawing to the Screen](https://browser.engineering/graphics.html)
   - [x] 2-1 Line breaks
-  - [x] 2-2 Mouse wheel 
+  - [x] 2-2 Mouse wheel
   - [x] 2-3 Resizing
   - [x] 2-4 Scrollbar
   - [ ] 2-5 Emoji
   - [ ] 2-6 about:blank
   - [ ] 2-7 Alternate text direction
+- [ ] [Chapter 3. Formatting Text](https://browser.engineering/text.html)
+  - [ ] 3-1 Centered text
+  - [ ] 3-2 Superscripts
+  - [ ] 3-3 Soft hyphens
+  - [ ] 3-4 Small caps
+  - [ ] 3-5 Preformatted text
 
 ## Reference
 

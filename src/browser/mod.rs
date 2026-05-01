@@ -8,10 +8,8 @@ mod tab;
 mod window;
 
 pub use app::Browser;
-pub use display::BACKGROUND;
 pub use display::DisplayItem;
-pub use display::FOREGROUND;
-pub use display::GLYPH_SCALE;
+pub use display::FONT_SIZE;
 pub use display::GLYPH_SIZE;
 pub use display::HSTEP;
 pub use display::MARGIN;

@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
-font8x8 = "0.3"
 skia-safe = { version = "0.97.0", features = ["textlayout"] }
 softbuffer = "0.4"
 thiserror = "2.0.18"
