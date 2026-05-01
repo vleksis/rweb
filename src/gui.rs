@@ -101,6 +101,7 @@ impl App {
             height,
             self.browser.active_display_list(),
             self.browser.active_scroll_y(),
+            self.browser.active_page_height(),
         );
         buffer.present().map_err(gui_error)?;
 

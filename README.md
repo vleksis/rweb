@@ -24,7 +24,7 @@ Completed:
   - [x] 2-1 Line breaks
   - [x] 2-2 Mouse wheel 
   - [x] 2-3 Resizing
-  - [ ] 2-4 Scrollbar
+  - [x] 2-4 Scrollbar
   - [ ] 2-5 Emoji
   - [ ] 2-6 about:blank
   - [ ] 2-7 Alternate text direction

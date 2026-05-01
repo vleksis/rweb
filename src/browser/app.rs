@@ -52,6 +52,10 @@ impl Browser {
         self.active_tab().page().page().display_list()
     }
 
+    pub fn active_page_height(&self) -> i32 {
+        self.active_tab().page().page().height()
+    }
+
     fn active_window(&self) -> &BrowserWindow {
         &self.windows[self.active_window]
     }
