@@ -34,6 +34,43 @@ Completed:
   - [ ] 3-3 Soft hyphens
   - [ ] 3-4 Small caps
   - [ ] 3-5 Preformatted text
+- [ ] [Chapter 4. Constructing an HTML Tree](https://browser.engineering/html.html)
+  - [ ] 4-1 Comments
+  - [ ] 4-2 Paragraphs
+  - [ ] 4-3 Scripts
+  - [ ] 4-4 Quoted attributes
+  - [ ] 4-5 Syntax highlighting
+  - [ ] 4-6 Mis-nested formatting tags
+- [ ] [Chapter 5. Laying Out Pages](https://browser.engineering/layout.html)
+  - [ ] 5-1 Links bar
+  - [ ] 5-2 Hidden head
+  - [ ] 5-3 Bullets
+  - [ ] 5-4 Table of contents
+  - [ ] 5-5 Anonymous block boxes
+  - [ ] 5-6 Run-ins
+- [ ] [Chapter 6. Applying Author Styles](https://browser.engineering/styles.html)
+  - [ ] 6-1 Fonts
+  - [ ] 6-2 Width/height
+  - [ ] 6-3 Class selectors
+  - [ ] 6-4 display
+  - [ ] 6-5 Shorthand properties
+  - [ ] 6-6 Inline style sheets
+  - [ ] 6-7 Fast descendant selectors
+  - [ ] 6-8 Selector sequences
+  - [ ] 6-9 !important
+  - [ ] 6-10 :has selectors
+- [ ] [Chapter 7. Handling Buttons and Links](https://browser.engineering/chrome.html)
+  - [ ] 7-1 Backspace
+  - [ ] 7-2 Middle-click
+  - [ ] 7-3 Window title
+  - [ ] 7-4 Forward
+  - [ ] 7-5 Fragments
+  - [ ] 7-6 Search
+  - [ ] 7-7 Visited links
+  - [ ] 7-8 Bookmarks
+  - [ ] 7-9 Cursor
+  - [ ] 7-10 Multiple windows
+  - [ ] 7-11 Clicks via the display list
 
 ## Reference
 
