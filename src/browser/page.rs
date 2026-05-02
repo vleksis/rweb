@@ -180,7 +180,11 @@ impl LayoutBuilder {
                 }
             }
 
-            NodeView::Tag { tag, children } => {
+            NodeView::Tag {
+                tag,
+                attributes: _,
+                children,
+            } => {
                 self.open_tag(tag);
                 for child in children {
                     self.node(document, *child);

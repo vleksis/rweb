@@ -1,9 +1,9 @@
-mod node;
+mod document;
+mod parser;
 mod tag;
 
-pub use node::Document;
-pub use node::Node;
-pub use node::NodeId;
-pub use node::NodeView;
-pub use node::parse;
+pub use document::Document;
+pub use document::NodeId;
+pub use document::NodeView;
+pub use parser::parse;
 pub use tag::Tag;

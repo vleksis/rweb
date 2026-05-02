@@ -34,7 +34,7 @@ Completed:
   - [ ] 3-3 Soft hyphens
   - [ ] 3-4 Small caps
   - [ ] 3-5 Preformatted text
-- [ ] [Chapter 4. Constructing an HTML Tree](https://browser.engineering/html.html)
+- [x] [Chapter 4. Constructing an HTML Tree](https://browser.engineering/html.html)
   - [ ] 4-1 Comments
   - [ ] 4-2 Paragraphs
   - [ ] 4-3 Scripts
