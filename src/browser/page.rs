@@ -4,8 +4,11 @@ use crate::browser::display::MARGIN;
 use crate::browser::display::TextStyle;
 use crate::browser::display::VSTEP;
 use crate::browser::font;
-use crate::browser::html::Token;
-use crate::browser::html::lex;
+use crate::html;
+use crate::html::Document;
+use crate::html::NodeId;
+use crate::html::NodeView;
+use crate::html::Tag;
 use crate::loader::Url;
 
 #[derive(Debug)]
@@ -38,37 +41,31 @@ pub struct LoadedPage {
 #[derive(Debug)]
 pub struct Page {
     url: Url,
-    source: String,
+    document: Document,
     layout: Layout,
     scroll_y: CssPx,
 }
 
 impl Page {
     pub fn new(loaded: LoadedPage) -> Self {
+        Self::from_source(loaded.url, loaded.source)
+    }
+
+    fn from_source(url: Url, source: String) -> Self {
         Self {
-            url: loaded.url,
-            source: loaded.source,
+            url,
+            document: html::parse(source),
             layout: Layout::empty(),
             scroll_y: 0.0,
         }
     }
 
     pub fn loading(url: Url) -> Self {
-        Self {
-            url,
-            source: "Loading...".to_string(),
-            layout: Layout::empty(),
-            scroll_y: 0.0,
-        }
+        Self::from_source(url, "Loading...".to_string())
     }
 
     pub fn failed(url: Url, message: String) -> Self {
-        Self {
-            url,
-            source: format!("Failed to load page:\n{message}"),
-            layout: Layout::empty(),
-            scroll_y: 0.0,
-        }
+        Self::from_source(url, format!("Failed to load page:\n{message}"))
     }
 
     pub fn layout(&mut self, viewport_width: CssPx) {
@@ -77,9 +74,7 @@ impl Page {
         }
 
         let mut builder = LayoutBuilder::new(viewport_width);
-        for token in lex(&self.source) {
-            builder.token(token);
-        }
+        builder.document(&self.document);
 
         self.layout = builder.finish();
     }
@@ -173,10 +168,29 @@ impl LayoutBuilder {
         }
     }
 
-    fn token(&mut self, token: Token) {
-        match token {
-            Token::Text(text) => self.text(&text),
-            Token::Tag(tag) => self.tag(&tag),
+    fn document(&mut self, document: &Document) {
+        self.node(document, document.root());
+    }
+
+    fn node(&mut self, document: &Document, node: NodeId) {
+        match document.view(node) {
+            NodeView::Document { children } => {
+                for child in children {
+                    self.node(document, *child);
+                }
+            }
+
+            NodeView::Tag { tag, children } => {
+                self.open_tag(tag);
+                for child in children {
+                    self.node(document, *child);
+                }
+                self.close_tag(tag);
+            }
+
+            NodeView::Text(text) => {
+                self.text(text);
+            }
         }
     }
 
@@ -227,27 +241,27 @@ impl LayoutBuilder {
         self.pending_space = false;
     }
 
-    fn tag(&mut self, tag: &str) {
-        let tag = tag
-            .split_whitespace()
-            .next()
-            .unwrap_or_default()
-            .to_ascii_lowercase();
+    fn open_tag(&mut self, tag: Tag) {
+        match tag {
+            Tag::Br => self.flush(),
+            Tag::B | Tag::Strong => self.style.bold(),
+            Tag::I | Tag::Em => self.style.italic(),
+            Tag::Small => self.style.smaller(),
+            Tag::Big => self.style.larger(),
+            _ => {}
+        }
+    }
 
-        match tag.as_str() {
-            "br" => self.flush(),
-            "/p" => {
+    fn close_tag(&mut self, tag: Tag) {
+        match tag {
+            Tag::P => {
                 self.flush();
                 self.y += VSTEP;
             }
-            "b" | "strong" => self.style.bold(),
-            "/b" | "/strong" => self.style.normal_weight(),
-            "i" | "em" => self.style.italic(),
-            "/i" | "/em" => self.style.roman(),
-            "small" => self.style.smaller(),
-            "/small" => self.style.larger(),
-            "big" => self.style.larger(),
-            "/big" => self.style.smaller(),
+            Tag::B | Tag::Strong => self.style.normal_weight(),
+            Tag::I | Tag::Em => self.style.roman(),
+            Tag::Small => self.style.larger(),
+            Tag::Big => self.style.smaller(),
             _ => {}
         }
     }
@@ -298,22 +312,15 @@ struct LineItem {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::browser::FontSlant;
     use crate::browser::FontWeight;
 
-    #[test]
-    fn lexes_text_and_tags() {
-        assert_eq!(
-            lex("a <b>bold</b>"),
-            vec![
-                Token::Text("a ".to_string()),
-                Token::Tag("b".to_string()),
-                Token::Text("bold".to_string()),
-                Token::Tag("/b".to_string()),
-            ]
-        );
+    fn layout_html(source: &str) -> Layout {
+        let document = html::parse(source.to_string());
+        let mut builder = LayoutBuilder::new(800.0);
+        builder.document(&document);
+        builder.finish()
     }
 
     #[test]
@@ -329,23 +336,14 @@ mod tests {
 
     #[test]
     fn layout_applies_bold_tag() {
-        let mut builder = LayoutBuilder::new(400.0);
-        builder.token(Token::Tag("b".to_string()));
-        builder.token(Token::Text("hello".to_string()));
-        let layout = builder.finish();
+        let layout = layout_html("<b>hello</b>");
 
         assert_eq!(layout.display_list[0].style.weight, FontWeight::Bold);
     }
 
     #[test]
     fn punctuation_after_inline_tag_does_not_get_extra_space() {
-        let mut builder = LayoutBuilder::new(800.0);
-        builder.token(Token::Text("What is a ".to_string()));
-        builder.token(Token::Tag("em".to_string()));
-        builder.token(Token::Text("font".to_string()));
-        builder.token(Token::Tag("/em".to_string()));
-        builder.token(Token::Text(", exactly?".to_string()));
-        let layout = builder.finish();
+        let layout = layout_html("What is a <em>font</em>, exactly?");
 
         let font_item = layout
             .display_list

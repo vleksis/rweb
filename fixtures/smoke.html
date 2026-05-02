@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <title>rweb smoke test</title>
+  <meta charset=utf-8>
+  <link rel=stylesheet href=missing.css>
+</head>
+<body>
+  <header>
+    <h1>rweb smoke test</h1>
+    <nav>
+      <a href=http://example.org>Example</a>
+      <a href=file:///tmp/example.html>Local file</a>
+      <a href=data:text/html,Hello>Data URL</a>
+    </nav>
+  </header>
+
+  <main>
+    <section>
+      <h2>Inline text</h2>
+      <p>
+        This paragraph mixes <strong>strong</strong>, <b>bold</b>,
+        <em>emphasis</em>, <i>italic</i>, <small>small</small>,
+        and <big>big</big> text. The comma after <em>font</em>, should stay
+        tight.
+      </p>
+      <p>
+        A forced break starts here:<br>
+        this text should continue after the break, then an image placeholder
+        appears as a void tag <img src=missing.png alt=missing>.
+      </p>
+      <hr>
+    </section>
+
+    <article>
+      <h2>Article</h2>
+      <h3>Nested content</h3>
+      <div>
+        <span>Span text inside a div.</span>
+        <p>Another paragraph inside the same div.</p>
+      </div>
+    </article>
+
+    <aside>
+      <h4>Lists</h4>
+      <ul>
+        <li>First unordered item</li>
+        <li>Second unordered item with <strong>bold</strong> text</li>
+      </ul>
+      <ol>
+        <li>First ordered item</li>
+        <li>Second ordered item</li>
+      </ol>
+    </aside>
+
+    <section>
+      <h5>Forms and unknown tags</h5>
+      <p>
+        Input is currently only a parsed void tag:
+        <input type=text value=hello>
+      </p>
+      <custom-element>
+        Unknown tags should not prevent child text from rendering.
+      </custom-element>
+    </section>
+
+    <section>
+      <h6>Final section</h6>
+      <p>
+        This paragraph is closed, so the smoke page stays valid while still
+        covering nested sections and headings.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    Footer text closes the smoke page.
+  </footer>
+</body>
+</html>
