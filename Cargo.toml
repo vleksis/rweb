@@ -11,3 +11,19 @@ thiserror = "2.0.18"
 tokio = { version = "1.52.1", features = ["full", "macros", "rt-multi-thread"] }
 tokio-native-tls = "0.3"
 winit = "0.30.13"
+
+[lints.clippy]
+# Debug leftovers and unfinished code
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+unreachable = "warn"
+
+let_underscore_future = "warn"
+unused_result_ok = "warn"
+map_err_ignore = "warn"
+infallible_try_from = "warn"
+iter_not_returning_iterator = "warn"
+
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"

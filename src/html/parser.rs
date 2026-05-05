@@ -143,11 +143,11 @@ impl DocumentBuilder {
     fn push_node(&mut self, parent: NodeId, kind: NodeKind) -> NodeId {
         let id = NodeId(self.arena.len());
 
-        match &mut self.arena[parent.0].kind {
-            NodeKind::Document(document) => document.children.push(id),
-            NodeKind::Tag(tag) => tag.children.push(id),
-            NodeKind::Text(_) => unreachable!(),
-        };
+        self.arena[parent.0]
+            .kind
+            .children_mut()
+            .expect("parser should not append children to text nodes")
+            .push(id);
 
         self.arena.push(Node {
             parent: Some(parent),

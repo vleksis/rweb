@@ -18,6 +18,16 @@ pub(super) enum NodeKind {
     Text(TextNode),
 }
 
+impl NodeKind {
+    pub(super) fn children_mut(&mut self) -> Option<&mut Vec<NodeId>> {
+        match self {
+            NodeKind::Document(document) => Some(&mut document.children),
+            NodeKind::Tag(tag) => Some(&mut tag.children),
+            NodeKind::Text(_) => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(super) struct DocumentNode {
     pub(super) children: Vec<NodeId>,
