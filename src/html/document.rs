@@ -36,8 +36,26 @@ pub(super) struct DocumentNode {
 #[derive(Debug)]
 pub(super) struct TagNode {
     pub(super) tag: Tag,
-    pub(super) attributes: Range<usize>,
+    pub(super) attributes: Vec<Attribute>,
     pub(super) children: Vec<NodeId>,
+}
+
+#[derive(Debug)]
+pub struct Attribute {
+    pub(super) name: Range<usize>,
+    pub(super) value: Option<Range<usize>>,
+}
+
+impl Attribute {
+    pub fn name<'s>(&self, document: &'s Document) -> &'s str {
+        &document.source[self.name.clone()]
+    }
+
+    pub fn value<'s>(&self, document: &'s Document) -> Option<&'s str> {
+        self.value
+            .as_ref()
+            .map(|value| &document.source[value.clone()])
+    }
 }
 
 #[derive(Debug)]
@@ -58,7 +76,7 @@ pub enum NodeView<'s> {
     },
     Tag {
         tag: Tag,
-        attributes: &'s str,
+        attributes: &'s [Attribute],
         children: &'s [NodeId],
     },
     Text(&'s str),
@@ -84,7 +102,7 @@ impl Document {
             },
             NodeKind::Tag(tag) => NodeView::Tag {
                 tag: tag.tag,
-                attributes: &self.source[tag.attributes.clone()],
+                attributes: &tag.attributes,
                 children: &tag.children,
             },
             NodeKind::Text(text) => NodeView::Text(&self.source[text.range.clone()]),

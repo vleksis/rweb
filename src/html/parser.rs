@@ -1,8 +1,8 @@
 use std::ops::Range;
 
-use anyhow::Ok;
 use anyhow::bail;
 
+use crate::html::document::Attribute;
 use crate::html::document::Document;
 use crate::html::document::DocumentNode;
 use crate::html::document::Node;
@@ -31,11 +31,29 @@ impl Parser {
     }
 
     fn peek(&self) -> Option<char> {
-        self.source()[self.pos..].chars().next()
+        self.nth(0)
+    }
+
+    /// Support no more than 3 chars lookahead
+    ///
+    /// # Panics
+    ///
+    /// Panics if `n` is greater than 3.
+    fn nth(&self, n: usize) -> Option<char> {
+        assert!(n <= 3);
+        self.remaining().chars().nth(n)
+    }
+
+    fn slice(&self, begin: usize, end: usize) -> &str {
+        &self.builder.source[begin..end]
+    }
+
+    fn remaining(&self) -> &str {
+        self.slice(self.pos, self.source().len())
     }
 
     fn advance(&mut self) -> Option<char> {
-        match self.source()[self.pos..].chars().next() {
+        match self.remaining().chars().next() {
             Some(c) => {
                 self.pos += c.len_utf8();
                 Some(c)
@@ -56,6 +74,36 @@ impl Parser {
 
         self.advance();
         Ok(())
+    }
+
+    fn match_char(&mut self, expected: char) -> bool {
+        if self.peek() == Some(expected) {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn skip_ascii_whitespace(&mut self) {
+        while self
+            .remaining()
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_whitespace)
+        {
+            self.pos += 1;
+        }
+    }
+
+    fn consume_while(&mut self, mut f: impl FnMut(char) -> bool) {
+        while let Some(c) = self.peek() {
+            if !f(c) {
+                break;
+            }
+
+            self.advance();
+        }
     }
 
     fn current_parent(&self) -> NodeId {
@@ -132,7 +180,7 @@ impl DocumentBuilder {
         Ok(())
     }
 
-    fn push_tag_node(&mut self, parent: NodeId, tag: Tag, attributes: Range<usize>) -> NodeId {
+    fn push_tag_node(&mut self, parent: NodeId, tag: Tag, attributes: Vec<Attribute>) -> NodeId {
         self.push_node(
             parent,
             NodeKind::Tag(TagNode {
@@ -184,68 +232,101 @@ pub fn parse(source: String) -> anyhow::Result<Document> {
     Ok(parser.finish())
 }
 
-fn parse_tag(parser: &mut Parser) -> anyhow::Result<ParsingTag> {
-    parser.consume('<')?;
-
-    let start = parser.pos;
+fn parse_attributes(parser: &mut Parser) -> anyhow::Result<Vec<Attribute>> {
+    let mut attributes = Vec::new();
 
     loop {
-        let Some(c) = parser.peek() else {
-            bail!("Tag is not closed: {}", &parser.source()[parser.pos..]);
-        };
+        parser.skip_ascii_whitespace();
 
-        if c == '>' {
-            parser.consume('>')?;
+        if matches!(parser.peek(), None | Some('>' | '/')) {
             break;
         }
 
-        parser.advance();
+        attributes.push(parse_attribute(parser)?);
     }
 
-    let mut raw_start = start;
-    let mut raw_end = parser.pos - 1;
-    let source = parser.source();
+    Ok(attributes)
+}
 
-    while raw_start < raw_end && source[raw_start..].starts_with(char::is_whitespace) {
-        raw_start += source[raw_start..].chars().next().unwrap().len_utf8();
-    }
-    while raw_end > raw_start && source[..raw_end].ends_with(char::is_whitespace) {
-        raw_end -= source[..raw_end].chars().next_back().unwrap().len_utf8();
+fn parse_attribute(parser: &mut Parser) -> anyhow::Result<Attribute> {
+    let name_start = parser.pos;
+    parser.consume_while(|c| !c.is_ascii_whitespace() && c != '=' && c != '>' && c != '/');
+
+    if parser.pos == name_start {
+        bail!("missing attribute name");
     }
 
-    let closing = source[raw_start..raw_end].starts_with('/');
-    if closing {
-        raw_start += 1;
-        while raw_start < raw_end && source[raw_start..].starts_with(char::is_whitespace) {
-            raw_start += source[raw_start..].chars().next().unwrap().len_utf8();
+    let name = name_start..parser.pos;
+    parser.skip_ascii_whitespace();
+
+    let value = if parser.match_char('=') {
+        parser.skip_ascii_whitespace();
+        Some(parse_attribute_value(parser)?)
+    } else {
+        None
+    };
+
+    Ok(Attribute { name, value })
+}
+
+fn parse_attribute_value(parser: &mut Parser) -> anyhow::Result<Range<usize>> {
+    match parser.peek() {
+        Some('"') | Some('\'') => {
+            let Some(quote) = parser.advance() else {
+                bail!("missing attribute value");
+            };
+            let start = parser.pos;
+
+            while let Some(c) = parser.peek() {
+                if c == quote {
+                    let value = start..parser.pos;
+                    parser.advance();
+                    return Ok(value);
+                }
+
+                parser.advance();
+            }
+
+            bail!("attribute value is not closed")
         }
-    }
 
-    let explicit_self_closing = source[raw_start..raw_end].ends_with('/');
-    if explicit_self_closing {
-        raw_end -= 1;
-        while raw_end > raw_start && source[..raw_end].ends_with(char::is_whitespace) {
-            raw_end -= source[..raw_end].chars().next_back().unwrap().len_utf8();
+        Some(_) => {
+            let start = parser.pos;
+            parser.consume_while(|c| !c.is_ascii_whitespace() && c != '>');
+            Ok(start..parser.pos)
         }
+
+        None => bail!("missing attribute value"),
+    }
+}
+
+fn parse_tag(parser: &mut Parser) -> anyhow::Result<ParsingTag> {
+    parser.consume('<')?;
+    parser.skip_ascii_whitespace();
+
+    let closing = parser.match_char('/');
+    parser.skip_ascii_whitespace();
+
+    let tag_start = parser.pos;
+    parser.consume_while(|c| !c.is_ascii_whitespace() && c != '/' && c != '>');
+
+    if parser.pos == tag_start {
+        bail!("missing tag name");
     }
 
-    let name_end = source[raw_start..raw_end]
-        .find(char::is_whitespace)
-        .map(|offset| raw_start + offset)
-        .unwrap_or(raw_end);
-    let name = source[raw_start..name_end].to_ascii_lowercase();
-    let mut attributes_start = name_end;
-    while attributes_start < raw_end && source[attributes_start..].starts_with(char::is_whitespace)
-    {
-        attributes_start += source[attributes_start..]
-            .chars()
-            .next()
-            .unwrap()
-            .len_utf8();
-    }
-    let attributes = attributes_start..raw_end;
+    let name = parser.slice(tag_start, parser.pos);
+    let tag = Tag::parse(name);
+    let is_markup_declaration = name.starts_with('!');
+    let attributes = if closing {
+        Vec::new()
+    } else {
+        parse_attributes(parser)?
+    };
 
-    let tag = Tag::parse(&name);
+    parser.skip_ascii_whitespace();
+    let explicit_self_closing = parser.match_char('/');
+    parser.skip_ascii_whitespace();
+    parser.consume('>')?;
 
     let parsing_tag = if closing {
         ParsingTag {
@@ -253,7 +334,7 @@ fn parse_tag(parser: &mut Parser) -> anyhow::Result<ParsingTag> {
             attributes,
             kind: TagKind::Close,
         }
-    } else if explicit_self_closing || tag.is_self_closing() || name.starts_with('!') {
+    } else if explicit_self_closing || tag.is_self_closing() || is_markup_declaration {
         ParsingTag {
             tag,
             attributes,
@@ -291,7 +372,7 @@ fn parse_text(parser: &mut Parser) -> Range<usize> {
 #[derive(Debug)]
 struct ParsingTag {
     tag: Tag,
-    attributes: Range<usize>,
+    attributes: Vec<Attribute>,
     kind: TagKind,
 }
 
@@ -321,22 +402,67 @@ mod tests {
     }
 
     #[test]
-    fn stores_raw_attributes() {
+    fn parses_attributes() {
         let document =
-            parse("<a href=http://example.org class=external>link</a>".to_string()).unwrap();
+            parse("<a href=http://example.org class=\"external\" disabled>link</a>".to_string())
+                .unwrap();
         let link = document.children(document.root())[0];
 
         assert_eq!(document.tag(link), Some(Tag::A));
-        assert!(
-            matches!(
-                document.view(link),
-                crate::html::NodeView::Tag {
-                    attributes: "href=http://example.org class=external",
-                    ..
-                }
-            ),
-            "expected raw attributes"
+        let attributes = match document.view(link) {
+            crate::html::NodeView::Tag { attributes, .. } => attributes,
+            _ => &[],
+        };
+
+        assert_eq!(attributes.len(), 3);
+        assert_eq!(attributes[0].name(&document), "href");
+        assert_eq!(attributes[0].value(&document), Some("http://example.org"));
+        assert_eq!(attributes[1].name(&document), "class");
+        assert_eq!(attributes[1].value(&document), Some("external"));
+        assert_eq!(attributes[2].name(&document), "disabled");
+        assert_eq!(attributes[2].value(&document), None);
+    }
+
+    #[test]
+    fn parses_quoted_attribute_values_with_spaces_and_greater_than() {
+        let document = parse(
+            "<a title=\"hello > world with spaces\" href='http://example.org?q=a>b'>link</a>"
+                .to_string(),
+        )
+        .unwrap();
+        let link = document.children(document.root())[0];
+        let attributes = match document.view(link) {
+            crate::html::NodeView::Tag { attributes, .. } => attributes,
+            _ => &[],
+        };
+
+        assert_eq!(attributes.len(), 2);
+        assert_eq!(attributes[0].name(&document), "title");
+        assert_eq!(
+            attributes[0].value(&document),
+            Some("hello > world with spaces")
         );
+        assert_eq!(attributes[1].name(&document), "href");
+        assert_eq!(
+            attributes[1].value(&document),
+            Some("http://example.org?q=a>b")
+        );
+    }
+
+    #[test]
+    fn greater_than_inside_quoted_attribute_does_not_close_tag() {
+        let document = parse("<p data-x=\"1 > 0\">ok</p>".to_string()).unwrap();
+        let paragraph = document.children(document.root())[0];
+        let text = document.children(paragraph)[0];
+        let attributes = match document.view(paragraph) {
+            crate::html::NodeView::Tag { attributes, .. } => attributes,
+            _ => &[],
+        };
+
+        assert_eq!(attributes.len(), 1);
+        assert_eq!(attributes[0].name(&document), "data-x");
+        assert_eq!(attributes[0].value(&document), Some("1 > 0"));
+        assert_eq!(document.text(text), Some("ok"));
     }
 
     #[test]

@@ -38,7 +38,7 @@ Completed:
   - [ ] 4-1 Comments
   - [ ] 4-2 Paragraphs
   - [ ] 4-3 Scripts
-  - [ ] 4-4 Quoted attributes
+  - [x] 4-4 Quoted attributes
   - [ ] 4-5 Syntax highlighting
   - [ ] 4-6 Mis-nested formatting tags
 - [ ] [Chapter 5. Laying Out Pages](https://browser.engineering/layout.html)

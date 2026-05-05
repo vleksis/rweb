@@ -45,7 +45,9 @@ pub enum Tag {
 
 impl Tag {
     pub fn parse(raw: &str) -> Self {
-        match raw {
+        let normalized = raw.to_ascii_lowercase();
+
+        match normalized.as_str() {
             "html" => Tag::Html,
             "head" => Tag::Head,
             "title" => Tag::Title,
@@ -101,4 +103,16 @@ pub enum TagKind {
     Open,
     Close,
     SelfClosing,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_tag_names_case_insensitively() {
+        assert_eq!(Tag::parse("HTML"), Tag::Html);
+        assert_eq!(Tag::parse("p"), Tag::P);
+        assert_eq!(Tag::parse("SeCtIoN"), Tag::Section);
+    }
 }
