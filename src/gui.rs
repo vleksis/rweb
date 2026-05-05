@@ -125,6 +125,25 @@ impl App {
             self.loader.load(url);
         }
     }
+
+    fn create_window(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
+        if self.window.is_some() {
+            anyhow::bail!("window already exists");
+        }
+
+        let attrs = Window::default_attributes()
+            .with_title(format!("rweb - {}", self.title))
+            .with_inner_size(LogicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT));
+        let window = Rc::new(event_loop.create_window(attrs)?);
+        let surface = Surface::new(&self.context, Rc::clone(&window)).map_err(gui_error)?;
+
+        self.surface = Some(surface);
+        self.window = Some(window);
+        self.start_initial_load();
+        self.request_redraw();
+
+        Ok(())
+    }
 }
 
 fn gui_error(err: impl std::fmt::Debug) -> anyhow::Error {
@@ -133,20 +152,10 @@ fn gui_error(err: impl std::fmt::Debug) -> anyhow::Error {
 
 impl ApplicationHandler<BrowserEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if self.window.is_some() {
-            panic!("window already exists");
+        if let Err(err) = self.create_window(event_loop) {
+            eprintln!("failed to create window: {err}");
+            event_loop.exit();
         }
-
-        let attrs = Window::default_attributes()
-            .with_title(format!("rweb - {}", self.title))
-            .with_inner_size(LogicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT));
-        let window = Rc::new(event_loop.create_window(attrs).unwrap());
-        let surface = Surface::new(&self.context, Rc::clone(&window)).unwrap();
-
-        self.surface = Some(surface);
-        self.window = Some(window);
-        self.start_initial_load();
-        self.request_redraw();
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: BrowserEvent) {

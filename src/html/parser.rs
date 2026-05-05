@@ -1,5 +1,8 @@
 use std::ops::Range;
 
+use anyhow::Ok;
+use anyhow::bail;
+
 use crate::html::document::Document;
 use crate::html::document::DocumentNode;
 use crate::html::document::Node;
@@ -42,9 +45,9 @@ impl Parser {
         }
     }
 
-    fn consume(&mut self, expected: char) {
+    fn consume(&mut self, expected: char) -> anyhow::Result<()> {
         if self.peek() != Some(expected) {
-            panic!(
+            bail!(
                 "Expected '{}', got '{}'",
                 expected,
                 self.peek().unwrap_or('?')
@@ -52,14 +55,15 @@ impl Parser {
         }
 
         self.advance();
+        Ok(())
     }
 
     fn current_parent(&self) -> NodeId {
         self.builder.current_parent()
     }
 
-    fn push_tag(&mut self, tag: ParsingTag) {
-        self.builder.push_tag(tag);
+    fn push_tag(&mut self, tag: ParsingTag) -> anyhow::Result<()> {
+        self.builder.push_tag(tag)
     }
 
     fn push_text(&mut self, range: Range<usize>) {
@@ -101,7 +105,7 @@ impl DocumentBuilder {
             .unwrap_or_else(|| NodeId(0))
     }
 
-    fn push_tag(&mut self, tag: ParsingTag) {
+    fn push_tag(&mut self, tag: ParsingTag) -> anyhow::Result<()> {
         match tag.kind {
             TagKind::Open => {
                 let id = self.push_tag_node(self.current_parent(), tag.tag, tag.attributes);
@@ -111,18 +115,21 @@ impl DocumentBuilder {
             TagKind::Close => match self.unfinished.last() {
                 Some((last, _)) => {
                     if *last != tag.tag {
-                        panic!("mismatched tag: expected {:?}, got {:?}", last, tag.tag);
+                        bail!("mismatched tag: expected {:?}, got {:?}", last, tag.tag);
                     }
 
                     self.unfinished.pop();
                 }
-                None => panic!("unmatched close tag: {:?}", tag.tag),
+
+                None => bail!("unmatched close tag: {:?}", tag.tag),
             },
 
             TagKind::SelfClosing => {
                 self.push_tag_node(self.current_parent(), tag.tag, tag.attributes);
             }
         };
+
+        Ok(())
     }
 
     fn push_tag_node(&mut self, parent: NodeId, tag: Tag, attributes: Range<usize>) -> NodeId {
@@ -161,34 +168,34 @@ impl DocumentBuilder {
     }
 }
 
-pub fn parse(source: String) -> Document {
+pub fn parse(source: String) -> anyhow::Result<Document> {
     let mut parser = Parser::new(source);
 
     while let Some(c) = parser.peek() {
         if c == '<' {
-            let tag = parse_tag(&mut parser);
-            parser.push_tag(tag);
+            let tag = parse_tag(&mut parser)?;
+            parser.push_tag(tag)?;
         } else {
             let text = parse_text(&mut parser);
             parser.push_text(text);
         }
     }
 
-    parser.finish()
+    Ok(parser.finish())
 }
 
-fn parse_tag(parser: &mut Parser) -> ParsingTag {
-    parser.consume('<');
+fn parse_tag(parser: &mut Parser) -> anyhow::Result<ParsingTag> {
+    parser.consume('<')?;
 
     let start = parser.pos;
 
     loop {
         let Some(c) = parser.peek() else {
-            panic!("Tag is not closed: {}", &parser.source()[parser.pos..]);
+            bail!("Tag is not closed: {}", &parser.source()[parser.pos..]);
         };
 
         if c == '>' {
-            parser.consume('>');
+            parser.consume('>')?;
             break;
         }
 
@@ -240,7 +247,7 @@ fn parse_tag(parser: &mut Parser) -> ParsingTag {
 
     let tag = Tag::parse(&name);
 
-    if closing {
+    let parsing_tag = if closing {
         ParsingTag {
             tag,
             attributes,
@@ -258,7 +265,9 @@ fn parse_tag(parser: &mut Parser) -> ParsingTag {
             attributes,
             kind: TagKind::Open,
         }
-    }
+    };
+
+    Ok(parsing_tag)
 }
 
 fn parse_text(parser: &mut Parser) -> Range<usize> {
@@ -292,7 +301,7 @@ mod tests {
 
     #[test]
     fn parses_text_under_document_root() {
-        let document = parse("hello".to_string());
+        let document = parse("hello".to_string()).unwrap();
         let text = document.children(document.root())[0];
 
         assert_eq!(document.text(text), Some("hello"));
@@ -301,7 +310,7 @@ mod tests {
 
     #[test]
     fn parses_nested_tags() {
-        let document = parse("<p>Hello <em>world</em></p>".to_string());
+        let document = parse("<p>Hello <em>world</em></p>".to_string()).unwrap();
         let paragraph = document.children(document.root())[0];
         let emphasis = document.children(paragraph)[1];
         let text = document.children(emphasis)[0];
@@ -313,21 +322,26 @@ mod tests {
 
     #[test]
     fn stores_raw_attributes() {
-        let document = parse("<a href=http://example.org class=external>link</a>".to_string());
+        let document =
+            parse("<a href=http://example.org class=external>link</a>".to_string()).unwrap();
         let link = document.children(document.root())[0];
 
-        let attributes = match document.view(link) {
-            crate::html::NodeView::Tag { attributes, .. } => attributes,
-            _ => panic!("expected tag node"),
-        };
-
         assert_eq!(document.tag(link), Some(Tag::A));
-        assert_eq!(attributes, "href=http://example.org class=external");
+        assert!(
+            matches!(
+                document.view(link),
+                crate::html::NodeView::Tag {
+                    attributes: "href=http://example.org class=external",
+                    ..
+                }
+            ),
+            "expected raw attributes"
+        );
     }
 
     #[test]
     fn treats_void_tags_as_self_closing() {
-        let document = parse("<p>a<br>b</p>".to_string());
+        let document = parse("<p>a<br>b</p>".to_string()).unwrap();
         let paragraph = document.children(document.root())[0];
         let children = document.children(paragraph);
 
@@ -338,7 +352,7 @@ mod tests {
 
     #[test]
     fn auto_closes_unfinished_tags_at_eof() {
-        let document = parse("<p>hello".to_string());
+        let document = parse("<p>hello".to_string()).unwrap();
         let paragraph = document.children(document.root())[0];
         let text = document.children(paragraph)[0];
 

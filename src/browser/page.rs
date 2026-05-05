@@ -54,7 +54,7 @@ impl Page {
     fn from_source(url: Url, source: String) -> Self {
         Self {
             url,
-            document: html::parse(source),
+            document: html::parse(source).expect("failed to parse page html"),
             layout: Layout::empty(),
             scroll_y: 0.0,
         }
@@ -321,7 +321,7 @@ mod tests {
     use crate::browser::FontWeight;
 
     fn layout_html(source: &str) -> Layout {
-        let document = html::parse(source.to_string());
+        let document = html::parse(source.to_string()).unwrap();
         let mut builder = LayoutBuilder::new(800.0);
         builder.document(&document);
         builder.finish()

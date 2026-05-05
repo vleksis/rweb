@@ -16,7 +16,7 @@ async fn follows_same_origin_redirect() {
         match request_path(request) {
             "/start" => response("302 Found", &[("Location", "/final")], ""),
             "/final" => response("200 OK", &[], "done"),
-            path => panic!("unexpected path: {path}"),
+            path => response("500 Internal Server Error", &[], path),
         }
     }));
     let url: Url = format!("http://{addr}/start").parse().unwrap();
