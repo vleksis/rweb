@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use crate::html::Tag;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -42,25 +40,23 @@ pub(super) struct TagNode {
 
 #[derive(Debug)]
 pub struct Attribute {
-    pub(super) name: Range<usize>,
-    pub(super) value: Option<Range<usize>>,
+    pub(super) name: String,
+    pub(super) value: Option<String>,
 }
 
 impl Attribute {
-    pub fn name<'s>(&self, document: &'s Document) -> &'s str {
-        &document.source[self.name.clone()]
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
-    pub fn value<'s>(&self, document: &'s Document) -> Option<&'s str> {
-        self.value
-            .as_ref()
-            .map(|value| &document.source[value.clone()])
+    pub fn value(&self) -> Option<&str> {
+        self.value.as_deref()
     }
 }
 
 #[derive(Debug)]
 pub(super) struct TextNode {
-    pub(super) range: Range<usize>,
+    pub(super) text: String,
 }
 
 #[derive(Debug)]
@@ -105,7 +101,7 @@ impl Document {
                 attributes: &tag.attributes,
                 children: &tag.children,
             },
-            NodeKind::Text(text) => NodeView::Text(&self.source[text.range.clone()]),
+            NodeKind::Text(node) => NodeView::Text(&node.text),
         }
     }
 
@@ -126,7 +122,7 @@ impl Document {
 
     pub fn text(&self, id: NodeId) -> Option<&str> {
         match &self.arena[id.0].kind {
-            NodeKind::Text(text) => Some(&self.source[text.range.clone()]),
+            NodeKind::Text(node) => Some(&node.text),
             _ => None,
         }
     }

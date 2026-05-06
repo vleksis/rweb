@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use anyhow::bail;
 
 use crate::html::document::Attribute;
@@ -114,8 +112,8 @@ impl Parser {
         self.builder.push_tag(tag)
     }
 
-    fn push_text(&mut self, range: Range<usize>) {
-        self.builder.push_text(self.current_parent(), range);
+    fn push_text(&mut self, text: String) {
+        self.builder.push_text(self.current_parent(), text);
     }
 
     fn finish(self) -> Document {
@@ -191,8 +189,8 @@ impl DocumentBuilder {
         )
     }
 
-    fn push_text(&mut self, parent: NodeId, range: Range<usize>) -> NodeId {
-        self.push_node(parent, NodeKind::Text(TextNode { range }))
+    fn push_text(&mut self, parent: NodeId, text: String) -> NodeId {
+        self.push_node(parent, NodeKind::Text(TextNode { text }))
     }
 
     fn push_node(&mut self, parent: NodeId, kind: NodeKind) -> NodeId {
@@ -256,7 +254,7 @@ fn parse_attribute(parser: &mut Parser) -> anyhow::Result<Attribute> {
         bail!("missing attribute name");
     }
 
-    let name = name_start..parser.pos;
+    let name = parser.slice(name_start, parser.pos).to_owned();
     parser.skip_ascii_whitespace();
 
     let value = if parser.match_char('=') {
@@ -269,7 +267,7 @@ fn parse_attribute(parser: &mut Parser) -> anyhow::Result<Attribute> {
     Ok(Attribute { name, value })
 }
 
-fn parse_attribute_value(parser: &mut Parser) -> anyhow::Result<Range<usize>> {
+fn parse_attribute_value(parser: &mut Parser) -> anyhow::Result<String> {
     match parser.peek() {
         Some('"') | Some('\'') => {
             let Some(quote) = parser.advance() else {
@@ -279,7 +277,7 @@ fn parse_attribute_value(parser: &mut Parser) -> anyhow::Result<Range<usize>> {
 
             while let Some(c) = parser.peek() {
                 if c == quote {
-                    let value = start..parser.pos;
+                    let value = parser.slice(start, parser.pos).to_owned();
                     parser.advance();
                     return Ok(value);
                 }
@@ -293,7 +291,8 @@ fn parse_attribute_value(parser: &mut Parser) -> anyhow::Result<Range<usize>> {
         Some(_) => {
             let start = parser.pos;
             parser.consume_while(|c| !c.is_ascii_whitespace() && c != '>');
-            Ok(start..parser.pos)
+            let value = parser.slice(start, parser.pos).to_owned();
+            Ok(value)
         }
 
         None => bail!("missing attribute value"),
@@ -351,7 +350,7 @@ fn parse_tag(parser: &mut Parser) -> anyhow::Result<ParsingTag> {
     Ok(parsing_tag)
 }
 
-fn parse_text(parser: &mut Parser) -> Range<usize> {
+fn parse_text(parser: &mut Parser) -> String {
     let start = parser.pos;
 
     loop {
@@ -366,7 +365,7 @@ fn parse_text(parser: &mut Parser) -> Range<usize> {
         parser.advance();
     }
 
-    start..parser.pos
+    parser.slice(start, parser.pos).to_owned()
 }
 
 #[derive(Debug)]
@@ -415,12 +414,12 @@ mod tests {
         };
 
         assert_eq!(attributes.len(), 3);
-        assert_eq!(attributes[0].name(&document), "href");
-        assert_eq!(attributes[0].value(&document), Some("http://example.org"));
-        assert_eq!(attributes[1].name(&document), "class");
-        assert_eq!(attributes[1].value(&document), Some("external"));
-        assert_eq!(attributes[2].name(&document), "disabled");
-        assert_eq!(attributes[2].value(&document), None);
+        assert_eq!(attributes[0].name(), "href");
+        assert_eq!(attributes[0].value(), Some("http://example.org"));
+        assert_eq!(attributes[1].name(), "class");
+        assert_eq!(attributes[1].value(), Some("external"));
+        assert_eq!(attributes[2].name(), "disabled");
+        assert_eq!(attributes[2].value(), None);
     }
 
     #[test]
@@ -437,16 +436,10 @@ mod tests {
         };
 
         assert_eq!(attributes.len(), 2);
-        assert_eq!(attributes[0].name(&document), "title");
-        assert_eq!(
-            attributes[0].value(&document),
-            Some("hello > world with spaces")
-        );
-        assert_eq!(attributes[1].name(&document), "href");
-        assert_eq!(
-            attributes[1].value(&document),
-            Some("http://example.org?q=a>b")
-        );
+        assert_eq!(attributes[0].name(), "title");
+        assert_eq!(attributes[0].value(), Some("hello > world with spaces"));
+        assert_eq!(attributes[1].name(), "href");
+        assert_eq!(attributes[1].value(), Some("http://example.org?q=a>b"));
     }
 
     #[test]
@@ -460,8 +453,8 @@ mod tests {
         };
 
         assert_eq!(attributes.len(), 1);
-        assert_eq!(attributes[0].name(&document), "data-x");
-        assert_eq!(attributes[0].value(&document), Some("1 > 0"));
+        assert_eq!(attributes[0].name(), "data-x");
+        assert_eq!(attributes[0].value(), Some("1 > 0"));
         assert_eq!(document.text(text), Some("ok"));
     }
 
