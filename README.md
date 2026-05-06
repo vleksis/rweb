@@ -35,7 +35,7 @@ Completed:
   - [ ] 3-4 Small caps
   - [ ] 3-5 Preformatted text
 - [x] [Chapter 4. Constructing an HTML Tree](https://browser.engineering/html.html)
-  - [ ] 4-1 Comments
+  - [x] 4-1 Comments
   - [ ] 4-2 Paragraphs
   - [ ] 4-3 Scripts
   - [x] 4-4 Quoted attributes

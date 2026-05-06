@@ -8,128 +8,19 @@ use crate::html::document::NodeId;
 use crate::html::document::NodeKind;
 use crate::html::document::TagNode;
 use crate::html::document::TextNode;
+use crate::html::lexer::Lexer;
 use crate::html::tag::Tag;
 use crate::html::tag::TagKind;
-
-struct Parser {
-    pos: usize,
-    builder: DocumentBuilder,
-}
-
-impl Parser {
-    fn new(source: String) -> Self {
-        Self {
-            pos: 0,
-            builder: DocumentBuilder::new(source),
-        }
-    }
-
-    fn source(&self) -> &str {
-        &self.builder.source
-    }
-
-    fn peek(&self) -> Option<char> {
-        self.nth(0)
-    }
-
-    /// Support no more than 3 chars lookahead
-    ///
-    /// # Panics
-    ///
-    /// Panics if `n` is greater than 3.
-    fn nth(&self, n: usize) -> Option<char> {
-        assert!(n <= 3);
-        self.remaining().chars().nth(n)
-    }
-
-    fn slice(&self, begin: usize, end: usize) -> &str {
-        &self.builder.source[begin..end]
-    }
-
-    fn remaining(&self) -> &str {
-        self.slice(self.pos, self.source().len())
-    }
-
-    fn advance(&mut self) -> Option<char> {
-        match self.remaining().chars().next() {
-            Some(c) => {
-                self.pos += c.len_utf8();
-                Some(c)
-            }
-
-            None => None,
-        }
-    }
-
-    fn consume(&mut self, expected: char) -> anyhow::Result<()> {
-        if self.peek() != Some(expected) {
-            bail!(
-                "Expected '{}', got '{}'",
-                expected,
-                self.peek().unwrap_or('?')
-            );
-        }
-
-        self.advance();
-        Ok(())
-    }
-
-    fn match_char(&mut self, expected: char) -> bool {
-        if self.peek() == Some(expected) {
-            self.advance();
-            true
-        } else {
-            false
-        }
-    }
-
-    fn skip_ascii_whitespace(&mut self) {
-        while self
-            .remaining()
-            .as_bytes()
-            .first()
-            .is_some_and(u8::is_ascii_whitespace)
-        {
-            self.pos += 1;
-        }
-    }
-
-    fn consume_while(&mut self, mut f: impl FnMut(char) -> bool) {
-        while let Some(c) = self.peek() {
-            if !f(c) {
-                break;
-            }
-
-            self.advance();
-        }
-    }
-
-    fn current_parent(&self) -> NodeId {
-        self.builder.current_parent()
-    }
-
-    fn push_tag(&mut self, tag: ParsingTag) -> anyhow::Result<()> {
-        self.builder.push_tag(tag)
-    }
-
-    fn push_text(&mut self, text: String) {
-        self.builder.push_text(self.current_parent(), text);
-    }
-
-    fn finish(self) -> Document {
-        self.builder.build()
-    }
-}
+use crate::html::token::Token;
 
 #[derive(Debug)]
 struct DocumentBuilder {
-    source: String,
     arena: Vec<Node>,
     unfinished: Vec<(Tag, NodeId)>,
 }
 
 impl DocumentBuilder {
-    fn new(source: String) -> Self {
+    fn new() -> Self {
         let root = Node {
             parent: None,
             kind: NodeKind::Document(DocumentNode {
@@ -138,7 +29,6 @@ impl DocumentBuilder {
         };
 
         Self {
-            source,
             arena: vec![root],
             unfinished: Vec::new(),
         }
@@ -209,163 +99,54 @@ impl DocumentBuilder {
         id
     }
 
-    fn build(self) -> Document {
-        Document::from_parts(self.source, self.arena)
+    fn build(self) -> Vec<Node> {
+        self.arena
     }
 }
 
 pub fn parse(source: String) -> anyhow::Result<Document> {
-    let mut parser = Parser::new(source);
+    let arena = parse_nodes(&source)?;
 
-    while let Some(c) = parser.peek() {
-        if c == '<' {
-            let tag = parse_tag(&mut parser)?;
-            parser.push_tag(tag)?;
-        } else {
-            let text = parse_text(&mut parser);
-            parser.push_text(text);
-        }
-    }
-
-    Ok(parser.finish())
+    Ok(Document::from_parts(source, arena))
 }
 
-fn parse_attributes(parser: &mut Parser) -> anyhow::Result<Vec<Attribute>> {
-    let mut attributes = Vec::new();
+fn parse_nodes(source: &str) -> anyhow::Result<Vec<Node>> {
+    let mut builder = DocumentBuilder::new();
+    let mut lexer = Lexer::new(source);
 
     loop {
-        parser.skip_ascii_whitespace();
-
-        if matches!(parser.peek(), None | Some('>' | '/')) {
-            break;
-        }
-
-        attributes.push(parse_attribute(parser)?);
-    }
-
-    Ok(attributes)
-}
-
-fn parse_attribute(parser: &mut Parser) -> anyhow::Result<Attribute> {
-    let name_start = parser.pos;
-    parser.consume_while(|c| !c.is_ascii_whitespace() && c != '=' && c != '>' && c != '/');
-
-    if parser.pos == name_start {
-        bail!("missing attribute name");
-    }
-
-    let name = parser.slice(name_start, parser.pos).to_owned();
-    parser.skip_ascii_whitespace();
-
-    let value = if parser.match_char('=') {
-        parser.skip_ascii_whitespace();
-        Some(parse_attribute_value(parser)?)
-    } else {
-        None
-    };
-
-    Ok(Attribute { name, value })
-}
-
-fn parse_attribute_value(parser: &mut Parser) -> anyhow::Result<String> {
-    match parser.peek() {
-        Some('"') | Some('\'') => {
-            let Some(quote) = parser.advance() else {
-                bail!("missing attribute value");
-            };
-            let start = parser.pos;
-
-            while let Some(c) = parser.peek() {
-                if c == quote {
-                    let value = parser.slice(start, parser.pos).to_owned();
-                    parser.advance();
-                    return Ok(value);
-                }
-
-                parser.advance();
+        match lexer.next()? {
+            Token::Comment(_) | Token::Doctype(_) => {}
+            Token::Text(text) => {
+                let parent = builder.current_parent();
+                builder.push_text(parent, text);
             }
-
-            bail!("attribute value is not closed")
+            Token::OpenTag { tag, attributes } => {
+                builder.push_tag(ParsingTag {
+                    tag,
+                    attributes,
+                    kind: TagKind::Open,
+                })?;
+            }
+            Token::SelfClosingTag { tag, attributes } => {
+                builder.push_tag(ParsingTag {
+                    tag,
+                    attributes,
+                    kind: TagKind::SelfClosing,
+                })?;
+            }
+            Token::CloseTag(tag) => {
+                builder.push_tag(ParsingTag {
+                    tag,
+                    attributes: Vec::new(),
+                    kind: TagKind::Close,
+                })?;
+            }
+            Token::Eof => break,
         }
-
-        Some(_) => {
-            let start = parser.pos;
-            parser.consume_while(|c| !c.is_ascii_whitespace() && c != '>');
-            let value = parser.slice(start, parser.pos).to_owned();
-            Ok(value)
-        }
-
-        None => bail!("missing attribute value"),
-    }
-}
-
-fn parse_tag(parser: &mut Parser) -> anyhow::Result<ParsingTag> {
-    parser.consume('<')?;
-    parser.skip_ascii_whitespace();
-
-    let closing = parser.match_char('/');
-    parser.skip_ascii_whitespace();
-
-    let tag_start = parser.pos;
-    parser.consume_while(|c| !c.is_ascii_whitespace() && c != '/' && c != '>');
-
-    if parser.pos == tag_start {
-        bail!("missing tag name");
     }
 
-    let name = parser.slice(tag_start, parser.pos);
-    let tag = Tag::parse(name);
-    let is_markup_declaration = name.starts_with('!');
-    let attributes = if closing {
-        Vec::new()
-    } else {
-        parse_attributes(parser)?
-    };
-
-    parser.skip_ascii_whitespace();
-    let explicit_self_closing = parser.match_char('/');
-    parser.skip_ascii_whitespace();
-    parser.consume('>')?;
-
-    let parsing_tag = if closing {
-        ParsingTag {
-            tag,
-            attributes,
-            kind: TagKind::Close,
-        }
-    } else if explicit_self_closing || tag.is_self_closing() || is_markup_declaration {
-        ParsingTag {
-            tag,
-            attributes,
-            kind: TagKind::SelfClosing,
-        }
-    } else {
-        ParsingTag {
-            tag,
-            attributes,
-            kind: TagKind::Open,
-        }
-    };
-
-    Ok(parsing_tag)
-}
-
-fn parse_text(parser: &mut Parser) -> String {
-    let start = parser.pos;
-
-    loop {
-        let Some(c) = parser.peek() else {
-            break;
-        };
-
-        if c == '<' {
-            break;
-        }
-
-        parser.advance();
-    }
-
-    parser.slice(start, parser.pos).to_owned()
+    Ok(builder.build())
 }
 
 #[derive(Debug)]

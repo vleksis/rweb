@@ -38,7 +38,7 @@ pub(super) struct TagNode {
     pub(super) children: Vec<NodeId>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Attribute {
     pub(super) name: String,
     pub(super) value: Option<String>,
