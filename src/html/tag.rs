@@ -96,6 +96,40 @@ impl Tag {
             Tag::Br | Tag::Hr | Tag::Img | Tag::Input | Tag::Link | Tag::Meta
         )
     }
+
+    pub fn is_block(self) -> bool {
+        matches!(
+            self,
+            Tag::Html
+                | Tag::Body
+                | Tag::Article
+                | Tag::Section
+                | Tag::Nav
+                | Tag::Aside
+                | Tag::H1
+                | Tag::H2
+                | Tag::H3
+                | Tag::H4
+                | Tag::H5
+                | Tag::H6
+                | Tag::Header
+                | Tag::Footer
+                | Tag::P
+                | Tag::Hr
+                | Tag::Ol
+                | Tag::Ul
+                | Tag::Li
+                | Tag::Main
+                | Tag::Div
+        )
+    }
+
+    pub fn is_hidden(self) -> bool {
+        matches!(
+            self,
+            Tag::Head | Tag::Title | Tag::Style | Tag::Script | Tag::Meta | Tag::Link
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

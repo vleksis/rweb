@@ -3,9 +3,9 @@ use anyhow::bail;
 use crate::html::document::Attribute;
 use crate::html::document::Document;
 use crate::html::document::DocumentNode;
-use crate::html::document::Node;
-use crate::html::document::NodeId;
-use crate::html::document::NodeKind;
+use crate::html::document::DomId;
+use crate::html::document::DomKind;
+use crate::html::document::DomNode;
 use crate::html::document::TagNode;
 use crate::html::document::TextNode;
 use crate::html::lexer::Lexer;
@@ -15,15 +15,15 @@ use crate::html::token::Token;
 
 #[derive(Debug)]
 struct DocumentBuilder {
-    arena: Vec<Node>,
-    unfinished: Vec<(Tag, NodeId)>,
+    arena: Vec<DomNode>,
+    unfinished: Vec<(Tag, DomId)>,
 }
 
 impl DocumentBuilder {
     fn new() -> Self {
-        let root = Node {
+        let root = DomNode {
             parent: None,
-            kind: NodeKind::Document(DocumentNode {
+            kind: DomKind::Document(DocumentNode {
                 children: Vec::new(),
             }),
         };
@@ -34,11 +34,11 @@ impl DocumentBuilder {
         }
     }
 
-    fn current_parent(&self) -> NodeId {
+    fn current_parent(&self) -> DomId {
         self.unfinished
             .last()
             .map(|(_, id)| *id)
-            .unwrap_or_else(|| NodeId(0))
+            .unwrap_or_else(|| DomId(0))
     }
 
     fn push_tag(&mut self, tag: ParsingTag) -> anyhow::Result<()> {
@@ -68,10 +68,10 @@ impl DocumentBuilder {
         Ok(())
     }
 
-    fn push_tag_node(&mut self, parent: NodeId, tag: Tag, attributes: Vec<Attribute>) -> NodeId {
+    fn push_tag_node(&mut self, parent: DomId, tag: Tag, attributes: Vec<Attribute>) -> DomId {
         self.push_node(
             parent,
-            NodeKind::Tag(TagNode {
+            DomKind::Tag(TagNode {
                 tag,
                 attributes,
                 children: Vec::new(),
@@ -79,12 +79,12 @@ impl DocumentBuilder {
         )
     }
 
-    fn push_text(&mut self, parent: NodeId, text: String) -> NodeId {
-        self.push_node(parent, NodeKind::Text(TextNode { text }))
+    fn push_text(&mut self, parent: DomId, text: String) -> DomId {
+        self.push_node(parent, DomKind::Text(TextNode { text }))
     }
 
-    fn push_node(&mut self, parent: NodeId, kind: NodeKind) -> NodeId {
-        let id = NodeId(self.arena.len());
+    fn push_node(&mut self, parent: DomId, kind: DomKind) -> DomId {
+        let id = DomId(self.arena.len());
 
         self.arena[parent.0]
             .kind
@@ -92,14 +92,14 @@ impl DocumentBuilder {
             .expect("parser should not append children to text nodes")
             .push(id);
 
-        self.arena.push(Node {
+        self.arena.push(DomNode {
             parent: Some(parent),
             kind,
         });
         id
     }
 
-    fn build(self) -> Vec<Node> {
+    fn build(self) -> Vec<DomNode> {
         self.arena
     }
 }
@@ -110,7 +110,7 @@ pub fn parse(source: String) -> anyhow::Result<Document> {
     Ok(Document::from_parts(source, arena))
 }
 
-fn parse_nodes(source: &str) -> anyhow::Result<Vec<Node>> {
+fn parse_nodes(source: &str) -> anyhow::Result<Vec<DomNode>> {
     let mut builder = DocumentBuilder::new();
     let mut lexer = Lexer::new(source);
 

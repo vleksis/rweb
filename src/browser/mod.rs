@@ -2,6 +2,7 @@ mod app;
 mod display;
 mod event;
 mod font;
+mod layout;
 mod loader;
 mod page;
 mod renderer;

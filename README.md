@@ -41,9 +41,9 @@ Completed:
   - [x] 4-4 Quoted attributes
   - [ ] 4-5 Syntax highlighting
   - [ ] 4-6 Mis-nested formatting tags
-- [ ] [Chapter 5. Laying Out Pages](https://browser.engineering/layout.html)
+- [x] [Chapter 5. Laying Out Pages](https://browser.engineering/layout.html)
   - [ ] 5-1 Links bar
-  - [ ] 5-2 Hidden head
+  - [x] 5-2 Hidden head
   - [ ] 5-3 Bullets
   - [ ] 5-4 Table of contents
   - [ ] 5-5 Anonymous block boxes
