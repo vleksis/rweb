@@ -4,6 +4,20 @@
 
 The goal of this project is to learn how browsers work by building the core pieces step by step.
 
+## Development
+
+The development requires:
+- [just](https://just.systems/)
+- rust nightly toolchain
+
+Configure Git to use the repository's pre-commit hook:
+
+```sh
+just setup-hooks
+```
+
+Run `just` to list the available recipes.
+
 ## Status
 
 This repository is in an early stage. The project structure and implementation will grow as chapters from Web Browser Engineering are completed.
