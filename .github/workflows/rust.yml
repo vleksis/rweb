@@ -1,52 +1,66 @@
-name: Rust
+name: Rust CI
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
+
   pull_request:
-    branches: ["main"]
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
 
 jobs:
-  fmt:
-    name: Format
-    runs-on: ubuntu-latest
+  ci:
+    name: Pre-commit checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Install nightly rustfmt
-        run: rustup toolchain install nightly --component rustfmt
-      - name: Check formatting
-        run: cargo +nightly fmt --all --check
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  check:
-    name: Check
-    runs-on: ubuntu-latest
+      - name: Install Rust toolchains
+        run: |
+          rustup toolchain install stable \
+            --profile minimal \
+            --component clippy
 
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - name: Cargo check
-        run: cargo check --workspace --all-targets
+          rustup toolchain install nightly \
+            --profile minimal \
+            --component rustfmt
 
-  test:
-    name: Test
-    runs-on: ubuntu-latest
+          rustup default stable
 
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - name: Run tests
-        run: cargo test --workspace
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            pkg-config \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            fonts-dejavu-core
 
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
+      - name: Install just
+        uses: extractions/setup-just@v3
 
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - name: Run clippy
-        run: cargo clippy --workspace --all-targets --no-deps -- -D warnings
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Run pre-commit checks
+        run: just pre-commit
