@@ -60,7 +60,7 @@ Completed:
   - [x] 5-2 Hidden head
   - [ ] 5-3 Bullets
   - [ ] 5-4 Table of contents
-  - [ ] 5-5 Anonymous block boxes
+  - [x] 5-5 Anonymous block boxes
   - [ ] 5-6 Run-ins
 - [ ] [Chapter 6. Applying Author Styles](https://browser.engineering/styles.html)
   - [ ] 6-1 Fonts

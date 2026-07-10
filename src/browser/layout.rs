@@ -64,12 +64,12 @@ impl LayoutTree {
         LayoutId(0)
     }
 
-    fn push(&mut self, parent: LayoutId, dom: DomId) -> LayoutId {
+    fn push(&mut self, parent: LayoutId, kind: LayoutBox) -> LayoutId {
         let id = LayoutId(self.nodes.len());
         let previous = self[parent].children.last().copied();
 
         self.nodes
-            .push(LayoutNode::new(dom, Some(parent), previous));
+            .push(LayoutNode::new(kind, Some(parent), previous));
         self[parent].children.push(id);
 
         id
@@ -94,9 +94,16 @@ impl IndexMut<LayoutId> for LayoutTree {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum LayoutBox {
+    Block(DomId),
+    Inline(DomId),
+    AnonymousBlock,
+}
+
 #[derive(Debug)]
 struct LayoutNode {
-    dom: DomId,
+    kind: LayoutBox,
 
     parent: Option<LayoutId>,
     previous: Option<LayoutId>,
@@ -112,12 +119,12 @@ struct LayoutNode {
 
 impl LayoutNode {
     fn root(dom: DomId) -> Self {
-        Self::new(dom, None, None)
+        Self::new(LayoutBox::Block(dom), None, None)
     }
 
-    fn new(dom: DomId, parent: Option<LayoutId>, previous: Option<LayoutId>) -> Self {
+    fn new(kind: LayoutBox, parent: Option<LayoutId>, previous: Option<LayoutId>) -> Self {
         Self {
-            dom,
+            kind,
             parent,
             previous,
             children: Vec::new(),
@@ -140,41 +147,18 @@ impl LayoutNode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LayoutMode {
-    Block,
-    Inline,
-}
-
-fn layout_mode(document: &Document, dom: DomId) -> LayoutMode {
-    match document.view(dom) {
-        NodeView::Text(_) => LayoutMode::Inline,
-        NodeView::Document { children } | NodeView::Tag { children, .. } => {
-            if has_block_child(document, children) {
-                LayoutMode::Block
-            } else {
-                LayoutMode::Inline
-            }
-        }
-    }
-}
-
-fn has_block_child(document: &Document, children: &[DomId]) -> bool {
-    children
-        .iter()
-        .copied()
-        .filter(|child| should_create_layout_node(document, *child))
-        .any(|child| is_block_node(document, child))
-}
-
 fn should_create_layout_node(document: &Document, dom: DomId) -> bool {
     match document.view(dom) {
         NodeView::Document { children } => children
             .iter()
             .any(|child| should_create_layout_node(document, *child)),
         NodeView::Tag { tag, .. } => !tag.is_hidden(),
-        NodeView::Text(text) => !text.trim().is_empty(),
+        NodeView::Text(text) => !text.is_empty(),
     }
+}
+
+fn is_whitespace_text(document: &Document, dom: DomId) -> bool {
+    matches!(document.view(dom), NodeView::Text(text) if text.trim().is_empty())
 }
 
 fn is_block_node(document: &Document, dom: DomId) -> bool {
@@ -217,25 +201,70 @@ impl<'a> LayoutBuilder<'a> {
         }
     }
 
-    fn build_node(&mut self, parent: LayoutId, dom: DomId) {
+    fn build_children(&mut self, parent: LayoutId) {
+        let LayoutBox::Block(dom_parent) = self.tree[parent].kind else {
+            return;
+        };
+
+        let children = self
+            .document
+            .children(dom_parent)
+            .iter()
+            .copied()
+            .filter(|child| should_create_layout_node(self.document, *child))
+            .collect::<Vec<_>>();
+
+        if children
+            .iter()
+            .copied()
+            .all(|child| !is_block_node(self.document, child))
+        {
+            for child in children.iter().copied() {
+                self.build_inline_node(parent, child);
+            }
+            return;
+        }
+
+        let mut inline_run = Vec::new();
+
+        for child in children {
+            if is_block_node(self.document, child) {
+                self.flush_anonymous_block(parent, &mut inline_run);
+
+                let layout = self.tree.push(parent, LayoutBox::Block(child));
+                self.build_children(layout);
+            } else {
+                inline_run.push(child);
+            }
+        }
+
+        self.flush_anonymous_block(parent, &mut inline_run);
+    }
+
+    fn flush_anonymous_block(&mut self, parent: LayoutId, inline_run: &mut Vec<DomId>) {
+        if inline_run
+            .iter()
+            .all(|dom| is_whitespace_text(self.document, *dom))
+        {
+            inline_run.clear();
+            return;
+        }
+
+        let anonymous = self.tree.push(parent, LayoutBox::AnonymousBlock);
+        for child in inline_run.drain(..) {
+            self.build_inline_node(anonymous, child);
+        }
+    }
+
+    fn build_inline_node(&mut self, parent: LayoutId, dom: DomId) {
         if !should_create_layout_node(self.document, dom) {
             return;
         }
 
-        let layout = self.tree.push(parent, dom);
-        self.build_children(layout);
-    }
+        let layout = self.tree.push(parent, LayoutBox::Inline(dom));
 
-    fn build_children(&mut self, parent: LayoutId) {
-        let dom = self.tree[parent].dom;
-
-        if layout_mode(self.document, dom) != LayoutMode::Block {
-            return;
-        }
-
-        let children = self.document.children(dom).to_vec();
-        for child in children {
-            self.build_node(parent, child);
+        for child in self.document.children(dom) {
+            self.build_inline_node(layout, *child);
         }
     }
 
@@ -264,12 +293,28 @@ impl<'a> LayoutBuilder<'a> {
     }
 
     fn layout_contents(&mut self, id: LayoutId) {
-        let dom = self.tree[id].dom;
-
-        match layout_mode(self.document, dom) {
-            LayoutMode::Block => self.layout_block_children(id),
-            LayoutMode::Inline => self.layout_inline_contents(id),
+        if self.has_inline_children(id) {
+            self.layout_inline_contents(id);
+        } else {
+            self.layout_block_children(id);
         }
+
+        if matches!(self.tree[id].kind, LayoutBox::Block(dom) if self.document.tag(dom) == Some(Tag::P))
+        {
+            self.tree[id].height += VSTEP;
+        }
+    }
+
+    fn has_inline_children(&self, id: LayoutId) -> bool {
+        // Construction should guarantee that children are
+        // either all inline or all block-level.
+        let child = self
+            .tree
+            .children(id)
+            .first()
+            .map(|child| self.tree[*child].kind);
+
+        matches!(child, Some(LayoutBox::Inline(_)))
     }
 
     fn layout_block_children(&mut self, id: LayoutId) {
@@ -284,8 +329,9 @@ impl<'a> LayoutBuilder<'a> {
 
     fn layout_inline_contents(&mut self, id: LayoutId) {
         let mut layout = InlineLayout::new(self.tree[id].x, self.tree[id].y, self.tree[id].width);
-        let dom = self.tree[id].dom;
-        layout.node(self.document, dom);
+        for child in self.tree.children(id) {
+            layout.node(self.document, &self.tree, *child);
+        }
 
         let (display_list, height) = layout.finish();
         self.tree[id].display_list = display_list;
@@ -348,26 +394,26 @@ impl InlineLayout {
         }
     }
 
-    fn node(&mut self, document: &Document, node: DomId) {
-        match document.view(node) {
-            NodeView::Document { children } => {
-                for child in children {
-                    self.node(document, *child);
+    fn node(&mut self, document: &Document, tree: &LayoutTree, node: LayoutId) {
+        let LayoutBox::Inline(dom) = tree[node].kind else {
+            return;
+        };
+
+        match document.view(dom) {
+            NodeView::Document { .. } => {
+                for child in tree.children(node) {
+                    self.node(document, tree, *child);
                 }
             }
 
             NodeView::Tag {
                 tag,
                 attributes: _,
-                children,
+                children: _,
             } => {
-                if tag.is_hidden() {
-                    return;
-                }
-
                 self.open_tag(tag);
-                for child in children {
-                    self.node(document, *child);
+                for child in tree.children(node) {
+                    self.node(document, tree, *child);
                 }
                 self.close_tag(tag);
             }
@@ -441,11 +487,6 @@ impl InlineLayout {
 
     fn close_tag(&mut self, tag: Tag) {
         match tag {
-            Tag::P => {
-                self.flush();
-                self.y += VSTEP;
-            }
-
             Tag::B | Tag::Strong | Tag::I | Tag::Em | Tag::Small | Tag::Big => self.pop_style(),
             _ => {}
         }
@@ -619,6 +660,89 @@ mod tests {
             .unwrap();
 
         assert!(second.y > first.y);
+    }
+
+    #[test]
+    fn mixed_children_create_anonymous_block() {
+        let document =
+            html::parse("<div><i>Hello, </i><b>world!</b><p>So it began...</p></div>".to_string())
+                .unwrap();
+        let mut builder = LayoutBuilder::new(&document, 800.0);
+        let root = builder.tree.root();
+        builder.build_children(root);
+
+        let div = builder.tree.children(root)[0];
+        let children = builder.tree.children(div);
+
+        assert!(
+            matches!(builder.tree[div].kind, LayoutBox::Block(dom) if document.tag(dom) == Some(Tag::Div))
+        );
+        assert_eq!(children.len(), 2);
+        assert!(matches!(
+            builder.tree[children[0]].kind,
+            LayoutBox::AnonymousBlock
+        ));
+        assert!(
+            matches!(builder.tree[children[1]].kind, LayoutBox::Block(dom) if document.tag(dom) == Some(Tag::P))
+        );
+
+        let inline = builder.tree.children(children[0]);
+        assert_eq!(inline.len(), 2);
+        assert!(
+            matches!(builder.tree[inline[0]].kind, LayoutBox::Inline(dom) if document.tag(dom) == Some(Tag::I))
+        );
+        assert!(
+            matches!(builder.tree[inline[1]].kind, LayoutBox::Inline(dom) if document.tag(dom) == Some(Tag::B))
+        );
+    }
+
+    #[test]
+    fn anonymous_block_lays_out_inline_siblings_on_one_line() {
+        let layout = layout_html("<div><i>Hello,</i> <b>world!</b><p>So it began...</p></div>");
+        let hello = layout
+            .display_list
+            .iter()
+            .find(|item| item.text == "Hello,")
+            .unwrap();
+        let world = layout
+            .display_list
+            .iter()
+            .find(|item| item.text == "world!")
+            .unwrap();
+        let paragraph = layout
+            .display_list
+            .iter()
+            .find(|item| item.text == "So")
+            .unwrap();
+        let hello_baseline = hello.y + font::font_metrics(hello.style).ascent;
+        let world_baseline = world.y + font::font_metrics(world.style).ascent;
+
+        assert!((world_baseline - hello_baseline).abs() < 0.5);
+        assert!(world.x > hello.x);
+        assert!(paragraph.y > hello.y);
+    }
+
+    #[test]
+    fn block_child_separates_anonymous_inline_runs() {
+        let layout = layout_html("<div>before<p>middle</p>after</div>");
+        let before = layout
+            .display_list
+            .iter()
+            .find(|item| item.text == "before")
+            .unwrap();
+        let middle = layout
+            .display_list
+            .iter()
+            .find(|item| item.text == "middle")
+            .unwrap();
+        let after = layout
+            .display_list
+            .iter()
+            .find(|item| item.text == "after")
+            .unwrap();
+
+        assert!(middle.y > before.y);
+        assert!(after.y > middle.y);
     }
 
     #[test]
