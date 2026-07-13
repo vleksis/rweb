@@ -62,9 +62,23 @@ impl TextStyle {
 }
 
 #[derive(Debug, Clone)]
-pub struct DisplayItem {
+pub enum DisplayItem {
+    Text(TextItem),
+    Rect(Rect),
+}
+
+#[derive(Debug, Clone)]
+pub struct TextItem {
     pub x: CssPx,
     pub y: CssPx,
     pub text: String,
     pub style: TextStyle,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Rect {
+    pub x: CssPx,
+    pub y: CssPx,
+    pub width: CssPx,
+    pub height: CssPx,
 }

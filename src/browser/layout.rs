@@ -4,6 +4,8 @@ use std::ops::IndexMut;
 use crate::browser::display::CssPx;
 use crate::browser::display::DisplayItem;
 use crate::browser::display::MARGIN;
+use crate::browser::display::Rect;
+use crate::browser::display::TextItem;
 use crate::browser::display::TextStyle;
 use crate::browser::display::VSTEP;
 use crate::browser::font;
@@ -11,6 +13,10 @@ use crate::html::Document;
 use crate::html::DomId;
 use crate::html::NodeView;
 use crate::html::Tag;
+
+const LIST_INDENT: CssPx = 32.0;
+const BULLET_SIZE: CssPx = 7.0;
+const BULLET_GAP: CssPx = 8.0;
 
 #[derive(Debug)]
 pub(super) struct Layout {
@@ -281,15 +287,38 @@ impl<'a> LayoutBuilder<'a> {
             return;
         };
 
-        let x = self.tree[parent].x;
+        let is_list_item = self.is_list_item(id);
+        let indent = if is_list_item { LIST_INDENT } else { 0.0 };
+        let x = self.tree[parent].x + indent;
         let y = self.tree[id]
             .previous
             .map(|previous| self.tree[previous].bottom())
             .unwrap_or(self.tree[parent].y);
-        let width = self.tree[parent].width;
+        let width = (self.tree[parent].width - indent).max(0.0);
 
         self.tree[id].set_containing_block(x, y, width);
         self.layout_contents(id);
+
+        if is_list_item {
+            self.add_list_marker(id);
+        }
+    }
+
+    fn is_list_item(&self, id: LayoutId) -> bool {
+        matches!(self.tree[id].kind, LayoutBox::Block(dom) if self.document.tag(dom) == Some(Tag::Li))
+    }
+
+    fn add_list_marker(&mut self, id: LayoutId) {
+        let node = &self.tree[id];
+        let marker = Rect {
+            x: node.x - BULLET_GAP - BULLET_SIZE,
+            y: node.y + (VSTEP - BULLET_SIZE) / 2.0,
+            width: BULLET_SIZE,
+            height: BULLET_SIZE,
+        };
+
+        self.tree[id].height = self.tree[id].height.max(VSTEP);
+        self.tree[id].display_list.push(DisplayItem::Rect(marker));
     }
 
     fn layout_contents(&mut self, id: LayoutId) {
@@ -527,12 +556,12 @@ impl InlineLayout {
 
         for item in self.line.drain(..) {
             let metrics = font::font_metrics(item.style);
-            self.display_list.push(DisplayItem {
+            self.display_list.push(DisplayItem::Text(TextItem {
                 x: self.origin_x + item.x,
                 y: self.origin_y + baseline - metrics.ascent,
                 text: item.text,
                 style: item.style,
-            });
+            }));
         }
 
         self.x = 0.0;
@@ -567,35 +596,46 @@ mod tests {
         Layout::build(&document, 800.0)
     }
 
+    fn text_items(layout: &Layout) -> impl Iterator<Item = &TextItem> {
+        layout.display_list.iter().filter_map(|item| match item {
+            DisplayItem::Text(item) => Some(item),
+            DisplayItem::Rect(_) => None,
+        })
+    }
+
+    fn text_item<'a>(layout: &'a Layout, text: &str) -> &'a TextItem {
+        text_items(layout).find(|item| item.text == text).unwrap()
+    }
+
+    fn rect_items(layout: &Layout) -> impl Iterator<Item = &Rect> {
+        layout.display_list.iter().filter_map(|item| match item {
+            DisplayItem::Text(_) => None,
+            DisplayItem::Rect(rect) => Some(rect),
+        })
+    }
+
     #[test]
     fn layout_emits_words_not_characters() {
         let layout = layout_html("hello world");
+        let items = text_items(&layout).collect::<Vec<_>>();
 
-        assert_eq!(layout.display_list.len(), 2);
-        assert_eq!(layout.display_list[0].text, "hello");
-        assert_eq!(layout.display_list[1].text, "world");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].text, "hello");
+        assert_eq!(items[1].text, "world");
     }
 
     #[test]
     fn layout_applies_bold_tag() {
         let layout = layout_html("<b>hello</b>");
 
-        assert_eq!(layout.display_list[0].style.weight, FontWeight::Bold);
+        assert_eq!(text_item(&layout, "hello").style.weight, FontWeight::Bold);
     }
 
     #[test]
     fn whitespace_between_inline_nodes_is_preserved() {
         let layout = layout_html("hello <em>world</em>");
-        let hello = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "hello")
-            .unwrap();
-        let world = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "world")
-            .unwrap();
+        let hello = text_item(&layout, "hello");
+        let world = text_item(&layout, "world");
         let hello_end = hello.x + font::measure_text(&hello.text, hello.style);
         let space = font::measure_text(" ", hello.style);
 
@@ -605,16 +645,10 @@ mod tests {
     #[test]
     fn nested_same_style_tags_restore_previous_style() {
         let layout = layout_html("<b>outer <b>inner</b> outer</b>");
-        let outer = layout
-            .display_list
-            .iter()
+        let outer = text_items(&layout)
             .filter(|item| item.text == "outer")
             .collect::<Vec<_>>();
-        let inner = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "inner")
-            .unwrap();
+        let inner = text_item(&layout, "inner");
 
         assert_eq!(outer.len(), 2);
         assert!(
@@ -629,16 +663,8 @@ mod tests {
     fn punctuation_after_inline_tag_does_not_get_extra_space() {
         let layout = layout_html("What is a <em>font</em>, exactly?");
 
-        let font_item = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "font")
-            .unwrap();
-        let comma = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == ",")
-            .unwrap();
+        let font_item = text_item(&layout, "font");
+        let comma = text_item(&layout, ",");
         let font_end = font_item.x + font::measure_text(&font_item.text, font_item.style);
 
         assert_eq!(font_item.style.slant, FontSlant::Italic);
@@ -648,18 +674,45 @@ mod tests {
     #[test]
     fn block_children_stack_vertically() {
         let layout = layout_html("<div><p>first</p><p>second</p></div>");
-        let first = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "first")
-            .unwrap();
-        let second = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "second")
-            .unwrap();
+        let first = text_item(&layout, "first");
+        let second = text_item(&layout, "second");
 
         assert!(second.y > first.y);
+    }
+
+    #[test]
+    fn list_items_are_indented_and_have_markers() {
+        let layout = layout_html("<p>plain</p><ul><li>first</li><li>second</li></ul>");
+        let plain = text_item(&layout, "plain");
+        let first = text_item(&layout, "first");
+        let second = text_item(&layout, "second");
+        let markers = rect_items(&layout).collect::<Vec<_>>();
+
+        assert_eq!(markers.len(), 2);
+        assert!(first.x > plain.x);
+        assert_eq!(first.x, second.x);
+        assert!(markers[0].x + markers[0].width < first.x);
+        assert!(markers[1].x + markers[1].width < second.x);
+        assert!(markers[1].y > markers[0].y);
+    }
+
+    #[test]
+    fn nested_list_items_add_indentation() {
+        let layout = layout_html("<ul><li>outer<ul><li>inner</li></ul></li></ul>");
+        let outer = text_item(&layout, "outer");
+        let inner = text_item(&layout, "inner");
+
+        assert!(inner.x > outer.x);
+        assert_eq!(rect_items(&layout).count(), 2);
+    }
+
+    #[test]
+    fn empty_list_item_reserves_marker_height() {
+        let layout = layout_html("<ul><li></li><li>next</li></ul>");
+        let markers = rect_items(&layout).collect::<Vec<_>>();
+
+        assert_eq!(markers.len(), 2);
+        assert!(markers[1].y > markers[0].y);
     }
 
     #[test]
@@ -699,21 +752,9 @@ mod tests {
     #[test]
     fn anonymous_block_lays_out_inline_siblings_on_one_line() {
         let layout = layout_html("<div><i>Hello,</i> <b>world!</b><p>So it began...</p></div>");
-        let hello = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "Hello,")
-            .unwrap();
-        let world = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "world!")
-            .unwrap();
-        let paragraph = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "So")
-            .unwrap();
+        let hello = text_item(&layout, "Hello,");
+        let world = text_item(&layout, "world!");
+        let paragraph = text_item(&layout, "So");
         let hello_baseline = hello.y + font::font_metrics(hello.style).ascent;
         let world_baseline = world.y + font::font_metrics(world.style).ascent;
 
@@ -725,21 +766,9 @@ mod tests {
     #[test]
     fn block_child_separates_anonymous_inline_runs() {
         let layout = layout_html("<div>before<p>middle</p>after</div>");
-        let before = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "before")
-            .unwrap();
-        let middle = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "middle")
-            .unwrap();
-        let after = layout
-            .display_list
-            .iter()
-            .find(|item| item.text == "after")
-            .unwrap();
+        let before = text_item(&layout, "before");
+        let middle = text_item(&layout, "middle");
+        let after = text_item(&layout, "after");
 
         assert!(middle.y > before.y);
         assert!(after.y > middle.y);
@@ -750,12 +779,7 @@ mod tests {
         let layout =
             layout_html("<html><head><title>hidden</title></head><body>visible</body></html>");
 
-        assert!(
-            layout
-                .display_list
-                .iter()
-                .any(|item| item.text == "visible")
-        );
-        assert!(!layout.display_list.iter().any(|item| item.text == "hidden"));
+        assert!(text_items(&layout).any(|item| item.text == "visible"));
+        assert!(!text_items(&layout).any(|item| item.text == "hidden"));
     }
 }

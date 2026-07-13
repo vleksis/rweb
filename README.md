@@ -58,7 +58,7 @@ Completed:
 - [x] [Chapter 5. Laying Out Pages](https://browser.engineering/layout.html)
   - [ ] 5-1 Links bar
   - [x] 5-2 Hidden head
-  - [ ] 5-3 Bullets
+  - [x] 5-3 Bullets
   - [ ] 5-4 Table of contents
   - [x] 5-5 Anonymous block boxes
   - [ ] 5-6 Run-ins

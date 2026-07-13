@@ -16,6 +16,8 @@ pub use display::FONT_SIZE;
 pub use display::FontSlant;
 pub use display::FontWeight;
 pub use display::MARGIN;
+pub use display::Rect;
+pub use display::TextItem;
 pub use display::TextStyle;
 pub use display::VSTEP;
 pub use display::WINDOW_HEIGHT;

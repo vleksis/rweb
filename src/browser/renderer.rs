@@ -6,6 +6,7 @@ use skia_safe::colors::BLACK;
 
 use crate::browser::display::CssPx;
 use crate::browser::display::DisplayItem;
+use crate::browser::display::Rect;
 use crate::browser::font;
 
 const SCROLLBAR_TRACK: Color = Color::from_rgb(0xf0, 0xf0, 0xf0);
@@ -15,13 +16,6 @@ const MIN_THUMB_HEIGHT: CssPx = 20.0;
 
 const BACKGROUND: Color = Color::from_rgb(0xff, 0xff, 0xff);
 const FOREGROUND: Color = Color::from_rgb(0x11, 0x11, 0x11);
-
-struct Rect {
-    x: CssPx,
-    y: CssPx,
-    width: CssPx,
-    height: CssPx,
-}
 
 pub struct Renderer;
 
@@ -50,17 +44,32 @@ impl Renderer {
         paint.set_anti_alias(true);
         paint.set_color(FOREGROUND);
         for item in display_list {
-            let y = item.y - scroll_y;
-            if y > height as CssPx {
-                continue;
-            }
-            let metrics = font::font_metrics(item.style);
-            if y + metrics.ascent + metrics.descent < 0.0 {
-                continue;
-            }
+            match item {
+                DisplayItem::Text(item) => {
+                    let y = item.y - scroll_y;
+                    if y > height as CssPx {
+                        continue;
+                    }
+                    let metrics = font::font_metrics(item.style);
+                    if y + metrics.ascent + metrics.descent < 0.0 {
+                        continue;
+                    }
 
-            let font = font::font_for_text(&item.text, item.style);
-            canvas.draw_str(&item.text, (item.x, y + metrics.ascent), &font, &paint);
+                    let font = font::font_for_text(&item.text, item.style);
+                    canvas.draw_str(&item.text, (item.x, y + metrics.ascent), &font, &paint);
+                }
+                DisplayItem::Rect(rect) => {
+                    let rect = Rect {
+                        y: rect.y - scroll_y,
+                        ..*rect
+                    };
+                    if rect.y > height as CssPx || rect.y + rect.height < 0.0 {
+                        continue;
+                    }
+
+                    Self::draw_rect(&canvas, rect, FOREGROUND, &mut paint);
+                }
+            }
         }
 
         Self::draw_scrollbar(&canvas, width, height, scroll_y, content_height);
@@ -131,5 +140,20 @@ mod tests {
         assert_eq!(FOREGROUND.a(), 0xff);
         assert_eq!(SCROLLBAR_TRACK.a(), 0xff);
         assert_eq!(SCROLLBAR_THUMB.a(), 0xff);
+    }
+
+    #[test]
+    fn draws_rect_display_items() {
+        let mut buffer = vec![0; 100];
+        let display_list = [DisplayItem::Rect(Rect {
+            x: 2.0,
+            y: 2.0,
+            width: 4.0,
+            height: 4.0,
+        })];
+
+        Renderer::draw(&mut buffer, 10, 10, &display_list, 0.0, 10.0);
+
+        assert_ne!(buffer[3 * 10 + 3], buffer[0]);
     }
 }
